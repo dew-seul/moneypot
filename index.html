@@ -512,6 +512,69 @@ body {
 @media (min-width: 1025px) {
   .fab { bottom: 36px; right: 36px; }
 }
+
+/* ── PIN Auth ── */
+.pin-overlay {
+  position: fixed; inset: 0; z-index: 300;
+  background: rgba(0,0,0,0.4);
+  display: flex; align-items: flex-end; justify-content: center;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.2s;
+}
+.pin-overlay.open { opacity: 1; pointer-events: all; }
+.pin-sheet {
+  width: 100%; max-width: 480px;
+  background: var(--canvas); border-radius: 24px 24px 0 0;
+  padding: 20px 24px env(safe-area-inset-bottom,24px);
+  transform: translateY(100%);
+  transition: transform 0.3s cubic-bezier(0.32,0,0,1);
+}
+.pin-overlay.open .pin-sheet { transform: translateY(0); }
+.pin-handle { width: 36px; height: 4px; border-radius: 2px; background: var(--ink-10); margin: 0 auto 20px; }
+.pin-step { text-align: center; }
+.pin-step-title { font-size: 17px; font-weight: 700; color: var(--ink); margin-bottom: 4px; }
+.pin-step-sub { font-size: 13px; color: var(--ink-40); font-weight: 500; margin-bottom: 20px; }
+.pin-member-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 8px; }
+.pin-member-btn {
+  padding: 22px 10px; border-radius: var(--r-lg);
+  background: var(--ink-04); box-shadow: var(--ring-inactive);
+  border: none; cursor: pointer;
+  font-size: 17px; font-weight: 700; color: var(--ink);
+  font-family: var(--font);
+  -webkit-tap-highlight-color: transparent;
+}
+.pin-member-btn:active { box-shadow: var(--ring-active); background: var(--ink-06); }
+.pin-dots { display: flex; gap: 16px; justify-content: center; margin: 24px 0 28px; }
+.pin-dot { width: 13px; height: 13px; border-radius: 50%; background: var(--ink-10); transition: background 0.12s, transform 0.12s; }
+.pin-dot.filled { background: var(--ink); transform: scale(1.15); }
+@keyframes pinShake { 0%,100%{transform:translateX(0)} 20%,60%{transform:translateX(-8px)} 40%,80%{transform:translateX(8px)} }
+#pin-dots.shake { animation: pinShake 0.38s; }
+.pin-keypad { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; }
+.pin-key {
+  aspect-ratio: 1.5; border: none; border-radius: var(--r-md);
+  background: var(--ink-04); box-shadow: var(--ring-inactive);
+  font-size: 20px; font-weight: 600; color: var(--ink);
+  font-family: var(--font); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.08s;
+}
+.pin-key:active { background: var(--ink-10); }
+.pin-key.pin-key-ghost { background: transparent; box-shadow: none; pointer-events: none; }
+.pin-back-row { display: flex; justify-content: center; margin-top: 14px; }
+.pin-back-btn { background: none; border: none; font-size: 13px; font-weight: 600; color: var(--ink-40); cursor: pointer; font-family: var(--font); padding: 8px 16px; }
+.login-chip {
+  display: flex; align-items: center; gap: 6px; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.login-chip-avatar {
+  width: 26px; height: 26px; border-radius: 50%;
+  background: var(--graphite);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 9px; font-weight: 700; color: var(--soft-white);
+}
+.login-chip-label { font-size: 12px; color: var(--ink-40); font-weight: 600; }
+#summary-personal { display: none; }
 </style>
 </head>
 <body>
@@ -562,9 +625,9 @@ body {
       </div>
       <div class="mobile-logo-text">머니팟</div>
     </div>
-    <div style="display:flex;align-items:center;gap:7px">
-      <span style="font-size:12px;color:var(--ink-40);font-weight:600">슬 &amp; 동현</span>
-      <div style="width:26px;height:26px;border-radius:50%;background:var(--graphite);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:var(--soft-white)">슬동</div>
+    <div class="login-chip" onclick="openPinModal()">
+      <span class="login-chip-label" id="header-user-label">로그인</span>
+      <div class="login-chip-avatar" id="header-user-avatar">?</div>
     </div>
   </div>
 </div>
@@ -592,27 +655,27 @@ body {
       <div class="summary-card">
         <div class="summary-icon"><svg viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z"/></svg></div>
         <div class="summary-label">공동 지출</div>
-        <div class="summary-value">0</div>
-        <div class="summary-delta delta-up"></div>
-      </div>
-      <div class="summary-card">
-        <div class="summary-icon"><svg viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"/></svg></div>
-        <div class="summary-label">내 개인 지출</div>
-        <div class="summary-value">0</div>
-        <div class="summary-delta delta-down"></div>
+        <div class="summary-value" id="sum-shared">0</div>
+        <div class="summary-delta"></div>
       </div>
       <div class="summary-card">
         <div class="summary-icon"><svg viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z"/></svg></div>
         <div class="summary-label">고정 지출</div>
-        <div class="summary-value">0</div>
+        <div class="summary-value" id="sum-fixed">0</div>
         <div class="summary-delta" style="color:var(--ink-40)"></div>
+      </div>
+      <div class="summary-card" id="summary-personal">
+        <div class="summary-icon"><svg viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"/></svg></div>
+        <div class="summary-label" id="personal-label">내 용돈</div>
+        <div class="summary-value" id="personal-spent">0</div>
+        <div class="summary-delta" id="personal-budget-info" style="color:var(--ink-40)"></div>
       </div>
     </div>
 
     <div class="card">
       <div class="section-title">
         예산 현황
-        <span class="section-more" onclick="openBudgetModal()">한도 설정</span>
+        <span class="section-more budget-setting-btn" onclick="openBudgetModal()">한도 설정</span>
       </div>
       <div id="home-budget-list"></div>
     </div>
@@ -692,7 +755,7 @@ body {
     <div class="card">
       <div class="section-title">
         예산 vs 실지출
-        <span class="section-more" onclick="openBudgetModal()">한도 편집</span>
+        <span class="section-more budget-setting-btn" onclick="openBudgetModal()">한도 편집</span>
       </div>
       <div id="stats-budget-list"></div>
     </div>
@@ -878,8 +941,55 @@ body {
     <div class="modal-title">예산 한도</div>
     <div style="font-size:13px;color:var(--ink-40);margin-bottom:18px;margin-top:-12px;font-weight:500">월 기준. 비워두면 한도 없음.</div>
     <div id="budget-edit-rows"></div>
+    <div style="font-size:11px;font-weight:700;color:var(--ink-40);letter-spacing:.08em;text-transform:uppercase;margin:20px 0 10px;padding:0 2px">멤버 용돈</div>
+    <div id="allowance-edit-rows"></div>
     <div style="height:18px"></div>
     <button class="btn-primary" onclick="saveBudget()">저장</button>
+  </div>
+</div>
+
+<!-- PIN 로그인 -->
+<div class="pin-overlay" id="pin-overlay" onclick="pinOverlayClick(event)">
+  <div class="pin-sheet">
+    <div class="pin-handle"></div>
+    <!-- Step 1: 멤버 선택 -->
+    <div class="pin-step" id="pin-step-member">
+      <div class="pin-step-title">누구세요?</div>
+      <div class="pin-step-sub">본인 이름을 선택해 주세요.</div>
+      <div class="pin-member-grid">
+        <button class="pin-member-btn" onclick="selectPinMember('슬')">슬</button>
+        <button class="pin-member-btn" onclick="selectPinMember('동현')">동현</button>
+      </div>
+      <div class="pin-back-row" id="pin-logout-row" style="display:none">
+        <button class="pin-back-btn" onclick="doLogout()">로그아웃</button>
+      </div>
+    </div>
+    <!-- Step 2: PIN 입력 -->
+    <div class="pin-step" id="pin-step-pin" style="display:none">
+      <div class="pin-step-title" id="pin-title">PIN 입력</div>
+      <div class="pin-step-sub" id="pin-sub"></div>
+      <div class="pin-dots" id="pin-dots">
+        <div class="pin-dot"></div><div class="pin-dot"></div>
+        <div class="pin-dot"></div><div class="pin-dot"></div>
+      </div>
+      <div class="pin-keypad">
+        <button class="pin-key" onclick="pinKey('1')">1</button>
+        <button class="pin-key" onclick="pinKey('2')">2</button>
+        <button class="pin-key" onclick="pinKey('3')">3</button>
+        <button class="pin-key" onclick="pinKey('4')">4</button>
+        <button class="pin-key" onclick="pinKey('5')">5</button>
+        <button class="pin-key" onclick="pinKey('6')">6</button>
+        <button class="pin-key" onclick="pinKey('7')">7</button>
+        <button class="pin-key" onclick="pinKey('8')">8</button>
+        <button class="pin-key" onclick="pinKey('9')">9</button>
+        <button class="pin-key pin-key-ghost"></button>
+        <button class="pin-key" onclick="pinKey('0')">0</button>
+        <button class="pin-key" onclick="pinKey('del')">⌫</button>
+      </div>
+      <div class="pin-back-row">
+        <button class="pin-back-btn" onclick="showPinStep('member')">← 뒤로</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -922,6 +1032,106 @@ const CATS = [
 
 const TXS = []
 
+/* ── Auth ── */
+const ADMIN = '슬'
+const MEMBERS_LIST = ['슬','동현']
+let currentUser = localStorage.getItem('mp_session') || null
+let pinBuf = '', pinTarget = '', pinMode = '', pendingPin = ''
+
+function getPin(n)  { return localStorage.getItem('mp_pin_'+n) }
+function savePin(n,p){ localStorage.setItem('mp_pin_'+n,p) }
+function getAllowance(n)  { return +(localStorage.getItem('mp_allow_'+n)||0) }
+function saveAllowance(n,v){ localStorage.setItem('mp_allow_'+n,v) }
+
+function openPinModal() {
+  pinBuf=''; pinTarget=''; pinMode=''; pendingPin=''
+  document.getElementById('pin-logout-row').style.display = currentUser ? '' : 'none'
+  showPinStep('member')
+  document.getElementById('pin-overlay').classList.add('open')
+}
+function closePinModal() { document.getElementById('pin-overlay').classList.remove('open') }
+function pinOverlayClick(e) { if(e.target===document.getElementById('pin-overlay')) closePinModal() }
+function showPinStep(step) {
+  document.getElementById('pin-step-member').style.display = step==='member'?'':'none'
+  document.getElementById('pin-step-pin').style.display   = step==='pin'?'':'none'
+}
+function selectPinMember(name) {
+  pinTarget=name; pinBuf=''; pendingPin=''
+  const hasPin = !!getPin(name)
+  if(hasPin) { pinMode='login'; document.getElementById('pin-title').textContent='PIN 입력'; document.getElementById('pin-sub').textContent=name }
+  else       { pinMode='set';   document.getElementById('pin-title').textContent='PIN 설정 (4자리)'; document.getElementById('pin-sub').textContent=name+' · 처음 설정' }
+  updatePinDots()
+  showPinStep('pin')
+}
+function pinKey(v) {
+  if(v==='del'){ pinBuf=pinBuf.slice(0,-1); updatePinDots(); return }
+  if(pinBuf.length>=4) return
+  pinBuf+=v; updatePinDots()
+  if(pinBuf.length===4) setTimeout(processPinInput, 80)
+}
+function processPinInput() {
+  if(pinMode==='login') {
+    if(pinBuf===getPin(pinTarget)) { loginSuccess() }
+    else { shakeDots(); pinBuf=''; updatePinDots() }
+  } else if(pinMode==='set') {
+    pendingPin=pinBuf; pinBuf=''
+    document.getElementById('pin-title').textContent='PIN 확인'
+    document.getElementById('pin-sub').textContent='다시 한 번 입력해 주세요.'
+    pinMode='confirm'; updatePinDots()
+  } else if(pinMode==='confirm') {
+    if(pinBuf===pendingPin) { savePin(pinTarget,pinBuf); loginSuccess() }
+    else { shakeDots(); pinBuf=''; pendingPin=''; pinMode='set'; document.getElementById('pin-title').textContent='PIN 설정 (다시)'; document.getElementById('pin-sub').textContent='일치하지 않아요.'; updatePinDots() }
+  }
+}
+function loginSuccess() {
+  currentUser=pinTarget; localStorage.setItem('mp_session',currentUser)
+  closePinModal(); renderAuth()
+}
+function doLogout() {
+  currentUser=null; localStorage.removeItem('mp_session')
+  closePinModal(); renderAuth()
+}
+function updatePinDots() {
+  document.querySelectorAll('.pin-dot').forEach((d,i)=>d.classList.toggle('filled',i<pinBuf.length))
+}
+function shakeDots() {
+  const el=document.getElementById('pin-dots')
+  el.classList.add('shake'); setTimeout(()=>el.classList.remove('shake'),400)
+}
+
+function renderAuth() {
+  const label  = document.getElementById('header-user-label')
+  const avatar = document.getElementById('header-user-avatar')
+  if(currentUser) {
+    label.textContent  = currentUser + (currentUser===ADMIN?' ·관':'')
+    avatar.textContent = currentUser[0]
+    avatar.style.background = 'var(--ink)'
+  } else {
+    label.textContent  = '로그인'
+    avatar.textContent = '?'
+    avatar.style.background = 'var(--graphite)'
+  }
+  // 개인 카드
+  const personalCard = document.getElementById('summary-personal')
+  if(currentUser) {
+    personalCard.style.display = ''
+    const spent = TXS.filter(t=>t.type==='personal'&&t.payer===currentUser).reduce((s,t)=>s+t.amount,0)
+    const budget = getAllowance(currentUser)
+    document.getElementById('personal-label').textContent = '내 용돈 · '+currentUser
+    document.getElementById('personal-spent').textContent = fmt(spent)
+    const budgetEl = document.getElementById('personal-budget-info')
+    budgetEl.textContent = budget ? '한도 '+fmt(budget)+'원' : '한도 미설정'
+  } else {
+    personalCard.style.display = 'none'
+  }
+  // 한도 설정 버튼 - 관리자만
+  document.querySelectorAll('.budget-setting-btn').forEach(el=>{
+    el.style.display = currentUser===ADMIN ? '' : 'none'
+  })
+  renderTxList()
+  renderAllBudgets()
+}
+
 const typeLabel = { shared:'공동', fixed:'고정', personal:'개인' }
 const typeRing  = { shared:'box-shadow:var(--ring-active);color:var(--ink);', fixed:'', personal:'' }
 function fmt(n) { return n.toLocaleString('ko-KR') }
@@ -947,12 +1157,21 @@ function txHTML(tx) {
     </div>`
 }
 
+function visibleTxs() {
+  return TXS.filter(t => t.type !== 'personal' || t.payer === currentUser)
+}
 function renderTxList() {
+  const visible = visibleTxs()
   const el = document.getElementById('tx-list')
-  if (el) el.innerHTML = TXS.map(txHTML).join('')
+  if (el) el.innerHTML = visible.map(txHTML).join('')
   const home = document.getElementById('home-tx-list')
-  if (home) home.innerHTML = TXS.slice(0,4).map(txHTML).join('')
+  if (home) home.innerHTML = visible.slice(0,4).map(txHTML).join('')
   renderWrongCardBanner()
+  // 공동/고정 summary 업데이트
+  const sharedTotal = TXS.filter(t=>t.type==='shared').reduce((s,t)=>s+t.amount,0)
+  const fixedTotal  = TXS.filter(t=>t.type==='fixed').reduce((s,t)=>s+t.amount,0)
+  const ss=document.getElementById('sum-shared'); if(ss) ss.textContent=fmt(sharedTotal)
+  const sf=document.getElementById('sum-fixed');  if(sf) sf.textContent=fmt(fixedTotal)
 }
 
 function renderWrongCardBanner() {
@@ -1045,10 +1264,18 @@ function renderBudgetEditRows() {
       <input class="budget-edit-input" type="number" inputmode="numeric" value="${c.budget||''}" placeholder="한도 없음" data-idx="${i}">
       <span class="budget-unit">원</span>
     </div>`).join('')
+  document.getElementById('allowance-edit-rows').innerHTML = MEMBERS_LIST.map(name=>`
+    <div class="budget-edit-row">
+      <div class="budget-edit-dot" style="background:var(--ink-24)"></div>
+      <div class="budget-edit-name">${name}</div>
+      <input class="allowance-edit-input" type="number" inputmode="numeric" value="${getAllowance(name)||''}" placeholder="한도 없음" data-name="${name}">
+      <span class="budget-unit">원</span>
+    </div>`).join('')
 }
 
 renderAllBudgets()
 renderTxList()
+renderAuth()
 
 function navigate(page) {
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'))
@@ -1069,7 +1296,10 @@ function saveBudget() {
   document.querySelectorAll('#budget-edit-rows .budget-edit-input').forEach(input=>{
     CATS[+input.dataset.idx].budget = input.value ? +input.value : null
   })
-  renderAllBudgets(); closeModal('modal-budget')
+  document.querySelectorAll('#allowance-edit-rows .allowance-edit-input').forEach(input=>{
+    saveAllowance(input.dataset.name, input.value ? +input.value : 0)
+  })
+  renderAllBudgets(); renderAuth(); closeModal('modal-budget')
 }
 
 function setSeg(el) { el.closest('.seg-control').querySelectorAll('.seg-btn').forEach(b=>b.classList.remove('active')); el.classList.add('active') }
