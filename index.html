@@ -955,7 +955,7 @@ body {
       </div>
     </div>
     <div style="height:12px"></div>
-    <button class="btn-primary" onclick="closeModal('modal-add')">저장</button>
+    <button class="btn-primary" onclick="saveAddForm()">저장</button>
   </div>
 </div>
 
@@ -1075,7 +1075,16 @@ function loadCats() {
 function saveCats() { localStorage.setItem('mp_cats', JSON.stringify(CATS)) }
 let CATS = loadCats()
 
-const TXS = []
+const DEFAULT_TXS = [
+  { id:1, icon:'bag', bg:'var(--ink-06)', name:'월급', cat:'', date:'6/25', payer:'슬',   type:'income', amount:3298087, excluded:false, wrongCard:false },
+  { id:2, icon:'bag', bg:'var(--ink-06)', name:'월급', cat:'', date:'6/25', payer:'동현', type:'income', amount:3000000, excluded:false, wrongCard:false },
+]
+function loadTxs() {
+  try { const s=localStorage.getItem('mp_txs'); return s?JSON.parse(s):JSON.parse(JSON.stringify(DEFAULT_TXS)) } catch(e){ return JSON.parse(JSON.stringify(DEFAULT_TXS)) }
+}
+function saveTxs() { localStorage.setItem('mp_txs', JSON.stringify(TXS)) }
+let TXS = loadTxs()
+let nextId = TXS.length ? Math.max(...TXS.map(t=>t.id))+1 : 10
 
 /* ── Auth ── */
 const ADMIN = '슬'
@@ -1409,11 +1418,48 @@ function setAddMode(el, mode) {
   document.getElementById('form-payer-label').textContent = mode==='income' ? '수령인' : '결제자'
 }
 function openAddModal() {
-  // 카테고리 칩 동적 렌더
   const chips = document.getElementById('form-cat-chips')
   if(chips) chips.innerHTML = CATS.map((c,i)=>`<div class="cat-chip${i===0?' active':''}" onclick="setCat(this)">${c.name}</div>`).join('')+'<div class="cat-chip" onclick="setCat(this)">기타</div>'
   document.querySelectorAll('.form-expense-only').forEach(e=>e.style.display='')
+  // 결제자 기본값 = 로그인 유저
+  const sel=document.getElementById('form-payer-select')
+  if(sel&&currentUser) sel.value=currentUser+(currentUser===ADMIN?'':'')||sel.options[0].value
   openModal('add')
+}
+function saveAddForm() {
+  const modal = document.getElementById('modal-add')
+  const modeSeg = modal.querySelector('.seg-control:first-of-type .seg-btn.active')
+  const isIncome = modeSeg && modeSeg.textContent.trim()==='수입'
+  const amtEl = modal.querySelector('.form-amount')
+  const nameEl = document.getElementById('add-name-input')
+  const payerEl = document.getElementById('form-payer-select')
+  const dateEl = modal.querySelector('input[type=date]')
+  const catEl = document.querySelector('#form-cat-chips .cat-chip.active')
+  const typeSeg = modal.querySelector('#form-expense-section .seg-btn.active')
+  const amount = +amtEl.value
+  if(!amount) { amtEl.focus(); return }
+  const typeMap = {'공동':'shared','고정':'fixed','개인':'personal'}
+  const type = isIncome ? 'income' : (typeMap[typeSeg?.textContent?.trim()]||'shared')
+  const payer = payerEl ? payerEl.value.replace(' (나)','') : (currentUser||'슬')
+  const tx = {
+    id: nextId++,
+    icon: isIncome ? 'bag' : 'food',
+    bg: 'var(--ink-06)',
+    name: nameEl.value.trim() || (isIncome?'수입':'지출'),
+    cat: isIncome ? '' : (catEl?.textContent||'기타'),
+    date: dateEl ? dateEl.value.replace(/\d{4}-(\d{2})-(\d{2})/,(_,m,d)=>+m+'/'+parseInt(d)) : '',
+    payer,
+    type,
+    amount,
+    excluded: false,
+    wrongCard: false,
+  }
+  TXS.unshift(tx)
+  saveTxs()
+  // 폼 리셋
+  amtEl.value=''; nameEl.value=''
+  closeModal('modal-add')
+  renderTxList(); renderAuth(); renderAllBudgets()
 }
 let currentMonth = 6
 function changeMonth(d) { currentMonth=Math.max(1,Math.min(12,currentMonth+d)); document.getElementById('stat-month').textContent=currentMonth+'월' }
