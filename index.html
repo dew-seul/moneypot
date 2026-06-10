@@ -1163,7 +1163,11 @@ async function syncPull() {
     const res = await fetch(SYNC_API)
     if(!res.ok) return
     const d = await res.json()
-    if(!d || !Array.isArray(d.txs)) return
+    if(!d || !Array.isArray(d.txs)) {
+      // 서버가 비어있음 → 로컬 데이터를 서버로 올림 (최초 마이그레이션)
+      if(TXS.length || localStorage.getItem('mp_txs')) syncPush()
+      return
+    }
     TXS.length = 0; TXS.push(...d.txs)
     localStorage.setItem('mp_txs', JSON.stringify(TXS))
     if(Array.isArray(d.cats) && d.cats.length){ CATS.length=0; CATS.push(...d.cats); localStorage.setItem('mp_cats', JSON.stringify(CATS)) }
