@@ -322,14 +322,14 @@ body {
 .budget-edit-row:last-child { box-shadow: none; }
 .budget-edit-dot  { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
 .budget-edit-name { flex: 1; font-size: 14px; font-weight: 600; color: var(--ink); }
-.budget-edit-input {
+.budget-edit-input, .allowance-edit-input {
   width: 120px; padding: 8px 11px; border: none; outline: none;
   border-radius: var(--r-sm); font-size: 14px; font-weight: 700;
   color: var(--ink); background: var(--canvas); text-align: right;
   font-family: var(--font); transition: box-shadow .12s;
   box-shadow: var(--ring-inactive);
 }
-.budget-edit-input:focus { box-shadow: var(--ring-active); }
+.budget-edit-input:focus, .allowance-edit-input:focus { box-shadow: var(--ring-active); }
 .budget-unit { font-size: 13px; color: var(--ink-40); font-weight: 500; }
 
 /* ── FAB ── */
