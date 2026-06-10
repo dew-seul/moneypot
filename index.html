@@ -302,6 +302,47 @@ body {
 .budget-remain { font-size: 11px; color: var(--ink-40); font-weight: 500; }
 .budget-remain.over { color: var(--ink-72); font-weight: 700; }
 
+/* ── Budget bar tooltip ── */
+.budget-bar-wrap { position: relative; cursor: default; }
+.budget-tooltip {
+  position: absolute;
+  bottom: calc(100% + 9px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--graphite);
+  color: rgba(255,255,255,0.92);
+  border-radius: var(--r-sm);
+  padding: 9px 13px;
+  font-size: 12px;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .15s;
+  z-index: 300;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.22);
+  min-width: 140px;
+}
+.budget-tooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top-color: var(--graphite);
+}
+.budget-tooltip.visible { opacity: 1; }
+.btt-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 16px;
+  line-height: 1.7;
+}
+.btt-row .btt-name { color: rgba(255,255,255,0.55); font-weight: 500; }
+.btt-row .btt-val  { font-weight: 700; font-variant-numeric: tabular-nums; }
+.btt-row .btt-pct  { color: rgba(255,255,255,0.45); font-weight: 500; font-size: 11px; margin-left: 4px; }
+
 /* Status badges — weight + ring only */
 .badge-over {
   display: inline-flex; align-items: center; font-size: 11px; font-weight: 700;
@@ -1378,8 +1419,15 @@ function renderBudgetRow(cat, compact) {
           </div>
         </div>
         ${cat.budget ? `
-        <div class="budget-track">
-          <div class="budget-fill" style="width:${pct}%;background:${barColor}"></div>
+        <div class="budget-bar-wrap" data-cat="${cat.name}"
+          onmouseenter="showBudgetTip(this)"
+          onmouseleave="hideBudgetTip(this)"
+          ontouchstart="showBudgetTip(this)"
+          ontouchend="hideBudgetTipDelayed(this)">
+          <div class="budget-track">
+            <div class="budget-fill" style="width:${pct}%;background:${barColor}"></div>
+          </div>
+          <div class="budget-tooltip"></div>
         </div>
         <div class="budget-footer">
           <div class="budget-pct" style="color:${barColor}">${Math.round(cat.spent/cat.budget*100)}%</div>
@@ -1387,6 +1435,43 @@ function renderBudgetRow(cat, compact) {
         </div>` : ''}
       </div>
     </div>`
+}
+
+function showBudgetTip(el) {
+  const catName = el.dataset.cat
+  const txs = TXS.filter(t => t.type !== 'income' && t.type !== 'personal' && t.cat === catName)
+  const total = txs.reduce((s,t) => s+t.amount, 0)
+  const tip = el.querySelector('.budget-tooltip')
+  if (!total) { tip.classList.remove('visible'); return }
+
+  const byPayer = {}
+  txs.forEach(t => { byPayer[t.payer] = (byPayer[t.payer]||0) + t.amount })
+
+  const payers = Object.keys(byPayer)
+  const allShared = payers.length === 1 && payers[0] === '공동'
+
+  let html = ''
+  if (allShared) {
+    html = `<div class="btt-row"><span class="btt-name">공동</span><span class="btt-val">${fmt(total)}원</span></div>`
+  } else {
+    const order = [...MEMBERS_LIST, '공동'].filter(p => byPayer[p] !== undefined)
+    order.forEach(payer => {
+      const amt = byPayer[payer]
+      const pct = Math.round(amt/total*100)
+      html += `<div class="btt-row"><span class="btt-name">${payer}</span><span class="btt-val">${fmt(amt)}원<span class="btt-pct">${pct}%</span></span></div>`
+    })
+  }
+
+  tip.innerHTML = html
+  tip.classList.add('visible')
+}
+function hideBudgetTip(el) {
+  el.querySelector('.budget-tooltip').classList.remove('visible')
+}
+let _tipTimer = null
+function hideBudgetTipDelayed(el) {
+  clearTimeout(_tipTimer)
+  _tipTimer = setTimeout(() => hideBudgetTip(el), 1600)
 }
 
 function allowanceBudgetRows(compact) {
