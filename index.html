@@ -1050,7 +1050,7 @@ function openPinModal() {
   document.getElementById('pin-overlay').classList.add('open')
 }
 function closePinModal() { document.getElementById('pin-overlay').classList.remove('open') }
-function pinOverlayClick(e) { if(e.target===document.getElementById('pin-overlay')) closePinModal() }
+function pinOverlayClick(e) { if(currentUser && e.target===document.getElementById('pin-overlay')) closePinModal() }
 function showPinStep(step) {
   document.getElementById('pin-step-member').style.display = step==='member'?'':'none'
   document.getElementById('pin-step-pin').style.display   = step==='pin'?'':'none'
@@ -1276,6 +1276,7 @@ function renderBudgetEditRows() {
 renderAllBudgets()
 renderTxList()
 renderAuth()
+if(!currentUser) openPinModal()
 
 function navigate(page) {
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'))
