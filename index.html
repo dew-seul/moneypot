@@ -1402,13 +1402,12 @@ function renderAllBudgets() {
     const spent = TXS.filter(t=>t.type!=='income'&&t.type!=='personal'&&t.cat===c.name).reduce((s,t)=>s+t.amount,0)
     return renderBudgetRow({...c, spent}, true)
   }).join('')
-  const allowRows = allowanceBudgetRows(true)
-  document.getElementById('home-budget-list').innerHTML  = catRows + allowRows
+  document.getElementById('home-budget-list').innerHTML  = catRows
   const catRowsFull = CATS.map(c=>{
     const spent = TXS.filter(t=>t.type!=='income'&&t.type!=='personal'&&t.cat===c.name).reduce((s,t)=>s+t.amount,0)
     return renderBudgetRow({...c, spent}, false)
   }).join('')
-  document.getElementById('stats-budget-list').innerHTML = catRowsFull + allowanceBudgetRows(false)
+  document.getElementById('stats-budget-list').innerHTML = catRowsFull
 }
 
 function renderBudgetEditRows() {
