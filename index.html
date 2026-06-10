@@ -1108,7 +1108,7 @@ function loadCats() {
   }
   try { const s=localStorage.getItem('mp_cats'); return s?JSON.parse(s):JSON.parse(JSON.stringify(DEFAULT_CATS)) } catch(e){ return JSON.parse(JSON.stringify(DEFAULT_CATS)) }
 }
-function saveCats() { localStorage.setItem('mp_cats', JSON.stringify(CATS)) }
+function saveCats() { localStorage.setItem('mp_cats', JSON.stringify(CATS)); syncPush() }
 let CATS = loadCats()
 
 const DEFAULT_TXS = [
@@ -1118,8 +1118,9 @@ const DEFAULT_TXS = [
 function loadTxs() {
   try { const s=localStorage.getItem('mp_txs'); return s?JSON.parse(s):JSON.parse(JSON.stringify(DEFAULT_TXS)) } catch(e){ return JSON.parse(JSON.stringify(DEFAULT_TXS)) }
 }
-function saveTxs() { localStorage.setItem('mp_txs', JSON.stringify(TXS)) }
+function saveTxs() { localStorage.setItem('mp_txs', JSON.stringify(TXS)); syncPush() }
 let TXS = loadTxs()
+let txFilter = '전체'
 // 마이그레이션: 개인 지출은 카테고리 미사용
 { let _dirty=false; TXS.forEach(t=>{ if(t.type==='personal'&&t.cat){ t.cat=''; _dirty=true } }); if(_dirty) saveTxs() }
 let nextId = TXS.length ? Math.max(...TXS.map(t=>t.id))+1 : 10
@@ -1131,9 +1132,54 @@ let currentUser = localStorage.getItem('mp_session') || null
 let pinBuf = '', pinTarget = '', pinMode = '', pendingPin = ''
 
 function getPin(n)  { return localStorage.getItem('mp_pin_'+n) }
-function savePin(n,p){ localStorage.setItem('mp_pin_'+n,p) }
+function savePin(n,p){ localStorage.setItem('mp_pin_'+n,p); syncPush() }
 function getAllowance(n)  { return +(localStorage.getItem('mp_allow_'+n)||0) }
-function saveAllowance(n,v){ localStorage.setItem('mp_allow_'+n,v) }
+function saveAllowance(n,v){ localStorage.setItem('mp_allow_'+n,v); syncPush() }
+
+/* ── Server sync (Cloudflare D1) ── */
+const SYNC_API = '/api/data'
+let _pushTimer = null
+let _lastPush = 0
+function collectSyncState() {
+  const pins = {}, allows = {}, settles = {}
+  for(let i=0;i<localStorage.length;i++){
+    const k = localStorage.key(i)
+    if(k.startsWith('mp_pin_')) pins[k.slice(7)] = localStorage.getItem(k)
+    else if(k.startsWith('mp_allow_')) allows[k.slice(9)] = +localStorage.getItem(k)
+    else if(k.startsWith('mp_settle_')) settles[k.slice(10)] = +localStorage.getItem(k)
+  }
+  return { txs: TXS, cats: CATS, pins, allows, settles, settleKeys: Object.keys(settles) }
+}
+function syncPush() {
+  clearTimeout(_pushTimer)
+  _pushTimer = setTimeout(()=>{
+    _lastPush = Date.now()
+    fetch(SYNC_API, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(collectSyncState()) }).catch(()=>{})
+  }, 600)
+}
+async function syncPull() {
+  if(Date.now() - _lastPush < 3000) return  // 방금 푸시했으면 스킵 (자기 데이터 덮어쓰기 방지)
+  try {
+    const res = await fetch(SYNC_API)
+    if(!res.ok) return
+    const d = await res.json()
+    if(!d || !Array.isArray(d.txs)) return
+    TXS.length = 0; TXS.push(...d.txs)
+    localStorage.setItem('mp_txs', JSON.stringify(TXS))
+    if(Array.isArray(d.cats) && d.cats.length){ CATS.length=0; CATS.push(...d.cats); localStorage.setItem('mp_cats', JSON.stringify(CATS)) }
+    Object.entries(d.pins||{}).forEach(([n,p])=>localStorage.setItem('mp_pin_'+n,p))
+    Object.entries(d.allows||{}).forEach(([n,v])=>localStorage.setItem('mp_allow_'+n,v))
+    // 수동 정산: 서버 상태로 전체 교체
+    const localSettleKeys = []
+    for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(k.startsWith('mp_settle_')) localSettleKeys.push(k) }
+    localSettleKeys.forEach(k=>localStorage.removeItem(k))
+    Object.entries(d.settles||{}).forEach(([k,v])=>localStorage.setItem('mp_settle_'+k,v))
+    nextId = TXS.length ? Math.max(...TXS.map(t=>t.id))+1 : 10
+    renderTxList(); renderAllBudgets(); renderAuth()
+  } catch(e){}
+}
+document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) syncPull() })
+setInterval(syncPull, 30000)
 
 function openPinModal() {
   pinBuf=''; pinTarget=''; pinMode=''; pendingPin=''
@@ -1257,8 +1303,10 @@ function visibleTxs() {
 }
 function renderTxList() {
   const visible = visibleTxs()
+  const typeMap = {'공동':'shared','고정':'fixed','개인':'personal'}
+  const filtered = txFilter==='전체' ? visible : visible.filter(t=>t.type===typeMap[txFilter])
   const el = document.getElementById('tx-list')
-  if (el) el.innerHTML = visible.length ? visible.map(txHTML).join('') : '<div style="text-align:center;padding:40px 0;color:var(--ink-40);font-size:13px;font-weight:500">기록이 없어요.</div>'
+  if (el) el.innerHTML = filtered.length ? filtered.map(txHTML).join('') : '<div style="text-align:center;padding:40px 0;color:var(--ink-40);font-size:13px;font-weight:500">기록이 없어요.</div>'
   const home = document.getElementById('home-tx-list')
   if (home) home.innerHTML = visible.slice(0,4).map(txHTML).join('')
   renderWrongCardBanner()
@@ -1371,11 +1419,11 @@ function saveSettleEdit(from, to, calcAmt) {
   const inp = document.getElementById('settle-input-'+from)
   const val = inp ? +inp.value : 0
   if(val > 0) localStorage.setItem(`mp_settle_${from}→${to}`, val)
-  renderSettle()
+  renderSettle(); syncPush()
 }
 function resetSettleEdit(from, to) {
   localStorage.removeItem(`mp_settle_${from}→${to}`)
-  renderSettle()
+  renderSettle(); syncPush()
 }
 
 function renderBalanceCard() {
@@ -1625,6 +1673,7 @@ renderAllBudgets()
 renderTxList()
 renderAuth()
 if(!currentUser) openPinModal()
+syncPull()
 
 function navigate(page) {
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'))
@@ -1664,7 +1713,12 @@ function saveBudget() {
 
 function setSeg(el) { el.closest('.seg-control').querySelectorAll('.seg-btn').forEach(b=>b.classList.remove('active')); el.classList.add('active') }
 function setCat(el) { document.querySelectorAll('.cat-chip').forEach(c=>c.classList.remove('active')); el.classList.add('active') }
-function setTab(el) { el.closest('.tabs').querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active')); el.classList.add('active') }
+function setTab(el) {
+  el.closest('.tabs').querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'))
+  el.classList.add('active')
+  txFilter = el.textContent.trim()
+  renderTxList()
+}
 function setAddMode(el, mode) {
   setSeg(el)
   document.querySelectorAll('.form-expense-only').forEach(e=>e.style.display = mode==='expense'?'':'none')
@@ -1787,7 +1841,7 @@ function saveAddForm() {
     icon: isIncome ? 'bag' : 'food',
     bg: 'var(--ink-06)',
     name: nameEl.value.trim() || (isIncome?'수입':'지출'),
-    cat: isIncome ? '' : (catEl?.textContent||'기타'),
+    cat: (isIncome || type==='personal') ? '' : (catEl?.textContent||'기타'),
     date: dateEl ? dateEl.value.replace(/\d{4}-(\d{2})-(\d{2})/,(_,m,d)=>+m+'/'+parseInt(d)) : '',
     payer,
     type,

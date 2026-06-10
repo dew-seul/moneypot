@@ -1,0 +1,8 @@
+name = "moneypot"
+pages_build_output_dir = "."
+compatibility_date = "2026-01-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "moneypot"
+database_id = "b90b9247-ad73-41c4-b642-6c9badbf2f4e"
