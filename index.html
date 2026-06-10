@@ -1148,9 +1148,10 @@ function collectSyncState() {
     else if(k.startsWith('mp_allow_')) allows[k.slice(9)] = +localStorage.getItem(k)
     else if(k.startsWith('mp_settle_')) settles[k.slice(10)] = +localStorage.getItem(k)
   }
-  return { txs: TXS, cats: CATS, pins, allows, settles, settleKeys: Object.keys(settles) }
+  return { txs: TXS, cats: CATS, pins, allows, settles, settleKeys: Object.keys(settles), ts: Date.now() }
 }
 function syncPush() {
+  localStorage.setItem('mp_dirty_ts', String(Date.now()))
   clearTimeout(_pushTimer)
   _pushTimer = setTimeout(()=>{
     _lastPush = Date.now()
@@ -1168,6 +1169,13 @@ async function syncPull() {
       if(TXS.length || localStorage.getItem('mp_txs')) syncPush()
       return
     }
+    // 서버가 초기 기본 상태인데 로컬에 진짜 데이터가 있으면 로컬이 우선
+    const serverIsDefault = d.txs.length <= 2 && d.txs.every(t=>t.name==='월급')
+    const localHasReal = TXS.length > 2 || TXS.some(t=>t.name!=='월급')
+    if(serverIsDefault && localHasReal) { syncPush(); return }
+    // 로컬 변경이 서버보다 최신이면 푸시
+    const localDirty = +(localStorage.getItem('mp_dirty_ts')||0)
+    if(d.ts && localDirty > d.ts) { syncPush(); return }
     TXS.length = 0; TXS.push(...d.txs)
     localStorage.setItem('mp_txs', JSON.stringify(TXS))
     if(Array.isArray(d.cats) && d.cats.length){ CATS.length=0; CATS.push(...d.cats); localStorage.setItem('mp_cats', JSON.stringify(CATS)) }
@@ -1179,6 +1187,7 @@ async function syncPull() {
     localSettleKeys.forEach(k=>localStorage.removeItem(k))
     Object.entries(d.settles||{}).forEach(([k,v])=>localStorage.setItem('mp_settle_'+k,v))
     nextId = TXS.length ? Math.max(...TXS.map(t=>t.id))+1 : 10
+    if(d.ts) localStorage.setItem('mp_dirty_ts', String(d.ts))
     renderTxList(); renderAllBudgets(); renderAuth()
   } catch(e){}
 }
