@@ -1295,6 +1295,10 @@ function openCtxMenu(e,id) {
   const menu = document.createElement('div')
   menu.className='ctx-menu'; menu.id='ctx-menu'
   menu.innerHTML=`
+    <div class="ctx-item" onclick="openEditModal(${id}); closeCtxMenu()">
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125"/></svg>
+      수정
+    </div>
     <div class="ctx-item" onclick="toggleExclude(${id})">
       <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="${tx.excluded?'M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z M15 12a3 3 0 11-6 0 3 3 0 016 0z':'M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88'}"/></svg>
       ${tx.excluded?'통계에 포함':'통계에서 제외'}
@@ -1304,9 +1308,9 @@ function openCtxMenu(e,id) {
       ${tx.wrongCard?'오결제 취소':'오결제 표시'}
     </div>
     <div class="ctx-divider"></div>
-    <div class="ctx-item danger" onclick="closeCtxMenu()">
-      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
-      닫기
+    <div class="ctx-item danger" onclick="deleteTx(${id}); closeCtxMenu()">
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg>
+      삭제
     </div>`
   const x = Math.min(e.clientX, window.innerWidth-200)
   const y = Math.min(e.clientY, window.innerHeight-150)
@@ -1315,8 +1319,44 @@ function openCtxMenu(e,id) {
   setTimeout(()=>document.addEventListener('click',closeCtxMenu,{once:true}),10)
 }
 function closeCtxMenu() { const m=document.getElementById('ctx-menu'); if(m)m.remove() }
-function toggleExclude(id)   { TXS.find(t=>t.id===id).excluded=!TXS.find(t=>t.id===id).excluded; renderTxList(); closeCtxMenu() }
-function toggleWrongCard(id) { TXS.find(t=>t.id===id).wrongCard=!TXS.find(t=>t.id===id).wrongCard; renderTxList(); closeCtxMenu() }
+function toggleExclude(id)   { TXS.find(t=>t.id===id).excluded=!TXS.find(t=>t.id===id).excluded; saveTxs(); renderTxList(); closeCtxMenu() }
+function toggleWrongCard(id) { TXS.find(t=>t.id===id).wrongCard=!TXS.find(t=>t.id===id).wrongCard; saveTxs(); renderTxList(); closeCtxMenu() }
+function deleteTx(id) { const i=TXS.findIndex(t=>t.id===id); if(i>-1){ TXS.splice(i,1); saveTxs(); renderTxList(); renderAuth(); renderAllBudgets() } }
+
+let editingId = null
+function openEditModal(id) {
+  const tx = TXS.find(t=>t.id===id)
+  if(!tx) return
+  editingId = id
+  // 카테고리 칩
+  const chips = document.getElementById('form-cat-chips')
+  if(chips) chips.innerHTML = CATS.map(c=>`<div class="cat-chip${c.name===tx.cat?' active':''}" onclick="setCat(this)">${c.name}</div>`).join('')+'<div class="cat-chip'+(tx.cat==='기타'?' active':'')+ '" onclick="setCat(this)">기타</div>'
+  // 수입/지출 모드
+  const isIncome = tx.type==='income'
+  const modeSegs = document.querySelectorAll('#modal-add .seg-control:first-of-type .seg-btn')
+  modeSegs.forEach(b=>b.classList.toggle('active', isIncome?(b.textContent.trim()==='수입'):(b.textContent.trim()==='지출')))
+  document.querySelectorAll('.form-expense-only').forEach(e=>e.style.display=isIncome?'none':'')
+  // 지출 유형
+  if(!isIncome) {
+    const typeMap = {shared:'공동',fixed:'고정',personal:'개인'}
+    const typeLabel = typeMap[tx.type]||'공동'
+    document.querySelectorAll('#form-expense-section .seg-btn').forEach(b=>b.classList.toggle('active',b.textContent.trim()===typeLabel))
+  }
+  // 값 채우기
+  document.querySelector('#modal-add .form-amount').value = tx.amount
+  document.getElementById('add-name-input').value = tx.name
+  const dateEl = document.querySelector('#modal-add input[type=date]')
+  if(dateEl && tx.date) {
+    const [m,d] = tx.date.split('/')
+    dateEl.value = `2026-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`
+  }
+  renderPayerSelect(tx.type==='personal', isIncome)
+  document.getElementById('form-payer-select').value = tx.payer
+  // 제목 변경
+  document.getElementById('add-modal-title').textContent = '수정'
+  openModal('add')
+}
+
 
 function renderBudgetRow(cat, compact) {
   const pct  = cat.budget ? Math.min(cat.spent/cat.budget*100,100) : null
@@ -1457,6 +1497,8 @@ function renderPayerSelect(isPersonal, isIncome) {
   }
 }
 function openAddModal() {
+  editingId = null
+  document.getElementById('add-modal-title').textContent='기록 추가'
   const chips = document.getElementById('form-cat-chips')
   if(chips) chips.innerHTML = CATS.map((c,i)=>`<div class="cat-chip${i===0?' active':''}" onclick="setCat(this)">${c.name}</div>`).join('')+'<div class="cat-chip" onclick="setCat(this)">기타</div>'
   document.querySelectorAll('.form-expense-only').forEach(e=>e.style.display='')
@@ -1508,10 +1550,16 @@ function saveAddForm() {
     excluded: false,
     wrongCard: false,
   }
-  TXS.unshift(tx)
+  if(editingId !== null) {
+    const idx = TXS.findIndex(t=>t.id===editingId)
+    if(idx>-1) { TXS[idx]={...TXS[idx], name:tx.name, cat:tx.cat, date:tx.date, payer:tx.payer, type:tx.type, amount:tx.amount} }
+    editingId = null
+  } else {
+    TXS.unshift(tx)
+  }
   saveTxs()
-  // 폼 리셋
   amtEl.value=''; nameEl.value=''
+  document.getElementById('add-modal-title').textContent='기록 추가'
   closeModal('modal-add')
   renderTxList(); renderAuth(); renderAllBudgets()
 }
