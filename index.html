@@ -1048,7 +1048,7 @@ const ICON = {
 
 const CAT_COLORS = ['var(--cat-food)','var(--cat-utility)','var(--cat-transport)','var(--cat-leisure)','var(--cat-goods)','var(--cat-sub)','var(--ink-40)']
 const DEFAULT_CATS = [
-  { name:'전세대출',         color:'var(--cat-food)',      budget:701867  },
+  { name:'전세대출',         color:'var(--cat-food)',      budget:710000  },
   { name:'저축',             color:'var(--cat-leisure)',   budget:2200000 },
   { name:'차량교통비',       color:'var(--cat-transport)', budget:420000  },
   { name:'보험(종합,실비)',  color:'var(--cat-sub)',       budget:357000  },
@@ -1063,7 +1063,7 @@ const DEFAULT_CATS = [
   { name:'전기상하수',       color:'var(--cat-utility)',   budget:null    },
 ]
 const DEFAULT_ALLOWANCES = { '동현': 400000, '슬': 600000 }
-const CATS_VER = '3'
+const CATS_VER = '4'
 function loadCats() {
   if(localStorage.getItem('mp_cats_ver')!==CATS_VER) {
     localStorage.removeItem('mp_cats')
