@@ -501,6 +501,35 @@ body {
   background: var(--ink-04); color: var(--ink-72); box-shadow: var(--ring-inactive);
 }
 .settle-btn-done:hover { background: var(--ink); color: white; box-shadow: none; }
+.settle-amt-wrap { position: relative; display: inline-block; }
+.settle-amt-editable { cursor: pointer; border-radius: 6px; padding: 1px 6px; transition: background .12s; }
+.settle-amt-editable:hover { background: var(--ink-06); }
+.settle-custom-badge {
+  display: inline-flex; align-items: center; font-size: 10px; font-weight: 700;
+  padding: 1px 5px; border-radius: 4px; margin-left: 5px;
+  background: var(--ink-06); color: var(--ink-40);
+  box-shadow: var(--ring-inactive); vertical-align: middle;
+}
+.settle-edit-inline {
+  display: flex; align-items: center; gap: 6px; margin-top: 2px;
+}
+.settle-edit-input {
+  width: 110px; padding: 5px 8px; border-radius: var(--r-sm);
+  border: none; box-shadow: var(--ring-active); font-size: 14px; font-weight: 700;
+  font-family: var(--font); color: var(--ink); background: var(--canvas);
+  text-align: center; outline: none;
+}
+.settle-edit-input:focus { box-shadow: rgba(29,29,31,0.4) 0px 0px 0px 1.5px inset; }
+.settle-edit-ok {
+  padding: 5px 10px; border-radius: var(--r-sm); border: none;
+  background: var(--ink); color: white; font-size: 12px; font-weight: 700;
+  cursor: pointer; font-family: var(--font);
+}
+.settle-edit-reset {
+  padding: 5px 8px; border-radius: var(--r-sm); border: none;
+  background: transparent; color: var(--ink-40); font-size: 11px; font-weight: 600;
+  cursor: pointer; font-family: var(--font); box-shadow: var(--ring-inactive);
+}
 .settle-completed { opacity: .32; }
 
 /* ── Mobile header ── */
@@ -1272,13 +1301,28 @@ function renderSettle() {
       <div style="font-size:11px;color:${subColor};font-weight:600">${sub}</div>
     </div>`
   }).join('')
-  const settleCards = settles.length ? settles.map(s=>`
+  const settleCards = settles.length ? settles.map(s=>{
+    const key = `${s.from}→${s.to}`
+    const custom = localStorage.getItem('mp_settle_'+key)
+    const dispAmt = custom ? +custom : s.amt
+    const isCustom = !!custom
+    const canEdit = currentUser === ADMIN
+    return `
     <div class="settle-card">
       <div class="settle-from"><div class="settle-avatar">${s.from[0]}</div><div class="settle-uname">${s.from}</div></div>
-      <div class="settle-arrow"><span class="settle-arrow-icon">→</span><div class="settle-amt">${fmt(s.amt)}원</div><div style="font-size:11px;color:var(--ink-40);margin-top:2px;font-weight:500">미정산</div></div>
+      <div class="settle-arrow">
+        <span class="settle-arrow-icon">→</span>
+        <div class="settle-amt-wrap" id="settle-wrap-${s.from}">
+          <div class="settle-amt ${canEdit?'settle-amt-editable':''}" onclick="${canEdit?`openSettleEdit('${s.from}','${s.to}',${s.amt})`:''}">
+            ${fmt(dispAmt)}원${isCustom?'<span class="settle-custom-badge">수동</span>':''}
+          </div>
+        </div>
+        <div style="font-size:11px;color:var(--ink-40);margin-top:2px;font-weight:500">미정산</div>
+      </div>
       <div class="settle-from"><div class="settle-avatar">${s.to[0]}</div><div class="settle-uname">${s.to}</div></div>
       <button class="settle-btn settle-btn-done" onclick="markSettled(this)">완료</button>
-    </div>`).join('') : `<div style="text-align:center;padding:20px 0;color:var(--ink-40);font-size:13px;font-weight:500">정산할 내역이 없어요.</div>`
+    </div>`
+  }).join('') : `<div style="text-align:center;padding:20px 0;color:var(--ink-40);font-size:13px;font-weight:500">정산할 내역이 없어요.</div>`
   el.innerHTML = `
     <div class="card" style="margin-bottom:12px">
       <div class="section-title">요약</div>
@@ -1296,6 +1340,32 @@ function renderSettle() {
       <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px">${memberGrid}</div>
     </div>`
 }
+function openSettleEdit(from, to, calcAmt) {
+  const wrap = document.getElementById('settle-wrap-'+from)
+  if(!wrap) return
+  const key = `${from}→${to}`
+  const current = localStorage.getItem('mp_settle_'+key) || calcAmt
+  wrap.innerHTML = `
+    <div class="settle-edit-inline">
+      <input class="settle-edit-input" id="settle-input-${from}" type="number" inputmode="numeric" value="${current}" placeholder="${calcAmt}">
+      <button class="settle-edit-ok" onclick="saveSettleEdit('${from}','${to}',${calcAmt})">확인</button>
+      <button class="settle-edit-reset" onclick="resetSettleEdit('${from}','${to}')">자동</button>
+    </div>`
+  const inp = document.getElementById('settle-input-'+from)
+  if(inp){ inp.focus(); inp.select() }
+  inp.onkeydown = e => { if(e.key==='Enter') saveSettleEdit(from,to,calcAmt) }
+}
+function saveSettleEdit(from, to, calcAmt) {
+  const inp = document.getElementById('settle-input-'+from)
+  const val = inp ? +inp.value : 0
+  if(val > 0) localStorage.setItem(`mp_settle_${from}→${to}`, val)
+  renderSettle()
+}
+function resetSettleEdit(from, to) {
+  localStorage.removeItem(`mp_settle_${from}→${to}`)
+  renderSettle()
+}
+
 function renderBalanceCard() {
   const income  = TXS.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0)
   const expense = TXS.filter(t=>t.type!=='income'&&t.type!=='personal').reduce((s,t)=>s+t.amount,0)
