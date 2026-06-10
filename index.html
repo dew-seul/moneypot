@@ -1546,7 +1546,15 @@ function closeModalOutside(e,id) { if(e.target===document.getElementById(id))clo
 function openBudgetModal() { renderBudgetEditRows(); document.getElementById('modal-budget').classList.add('open') }
 function saveBudget() {
   document.querySelectorAll('#budget-edit-rows .budget-edit-name-input').forEach(input=>{
-    if(CATS[+input.dataset.idx]) CATS[+input.dataset.idx].name = input.value.trim()||CATS[+input.dataset.idx].name
+    const idx = +input.dataset.idx
+    if(!CATS[idx]) return
+    const oldName = CATS[idx].name
+    const newName = input.value.trim() || oldName
+    if(newName !== oldName) {
+      TXS.forEach(t => { if(t.cat === oldName) t.cat = newName })
+      saveTxs()
+    }
+    CATS[idx].name = newName
   })
   document.querySelectorAll('#budget-edit-rows .budget-edit-input').forEach(input=>{
     if(CATS[+input.dataset.idx]) CATS[+input.dataset.idx].budget = input.value ? +input.value : null
