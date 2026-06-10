@@ -956,13 +956,13 @@ body {
     </div>
     <div class="form-group">
       <label class="form-label">금액</label>
-      <input class="form-input form-amount" type="number" placeholder="0" inputmode="numeric">
+      <input class="form-input form-amount" type="number" placeholder="0" inputmode="numeric" oninput="updateSplitHint()">
     </div>
     <div class="form-group">
       <label class="form-label">내용</label>
       <input class="form-input" id="add-name-input" type="text" placeholder="이마트 장보기">
     </div>
-    <div class="form-expense-only">
+    <div class="form-expense-only" id="form-cat-section">
       <div class="form-group">
         <label class="form-label">카테고리</label>
         <div class="cat-chips" id="form-cat-chips"></div>
@@ -971,21 +971,23 @@ body {
     <div class="form-row">
       <div class="form-group" style="margin:0">
         <label class="form-label" id="form-payer-label">결제자</label>
-        <select class="form-input" id="form-payer-select" style="appearance:none"></select>
+        <select class="form-input" id="form-payer-select" style="appearance:none" onchange="onPayerChange()"></select>
       </div>
       <div class="form-group" style="margin:0">
         <label class="form-label">날짜</label>
         <input class="form-input" type="date" value="2026-06-10">
       </div>
     </div>
-    <div class="form-expense-only" id="form-split-section">
+    <div id="form-split-section" style="display:none">
       <div class="form-group">
-        <label class="form-label">부담 방식</label>
-        <div class="seg-control">
-          <div class="seg-btn active" onclick="setSeg(this)">균등 (1/n)</div>
-          <div class="seg-btn" onclick="setSeg(this)">비율 설정</div>
-          <div class="seg-btn" onclick="setSeg(this)">결제자 전액</div>
+        <label class="form-label">정산</label>
+        <div class="seg-control" id="form-split-seg">
+          <div class="seg-btn active" onclick="setSeg(this);onSplitChange()">균등</div>
+          <div class="seg-btn" onclick="setSeg(this);onSplitChange()">직접 입력</div>
+          <div class="seg-btn" onclick="setSeg(this);onSplitChange()">전액</div>
         </div>
+        <div id="form-split-hint" style="font-size:12px;color:var(--ink-40);font-weight:500;margin-top:7px;min-height:16px"></div>
+        <input class="form-input" id="form-split-custom" type="number" inputmode="numeric" placeholder="정산 받을 금액" style="display:none;margin-top:8px" oninput="updateSplitHint()">
       </div>
     </div>
     <div style="height:12px"></div>
@@ -1271,12 +1273,20 @@ function renderSettle() {
   // 개인결제 공동지출만 (공동-payer 제외, income/personal 제외)
   const splits = TXS.filter(t=>t.type!=='income'&&t.type!=='personal'&&t.payer!=='공동')
   const paid = {}
-  MEMBERS_LIST.forEach(n=>paid[n]=0)
-  splits.forEach(t=>{ if(paid[t.payer]!==undefined) paid[t.payer]+=t.amount })
+  const net  = {}  // 받을(+) / 줄(-) 금액
+  MEMBERS_LIST.forEach(n=>{ paid[n]=0; net[n]=0 })
+  splits.forEach(t=>{
+    const N = MEMBERS_LIST.length
+    const share = t.settleShare !== undefined ? t.settleShare : Math.round(t.amount/N*(N-1))
+    if(paid[t.payer] !== undefined) paid[t.payer] += t.amount
+    net[t.payer] += share
+    const others = MEMBERS_LIST.filter(m=>m!==t.payer)
+    const perOther = Math.round(share/others.length)
+    others.forEach(m=>{ net[m] -= perOther })
+  })
   const total = Object.values(paid).reduce((s,v)=>s+v,0)
-  const fair = Math.round(total/MEMBERS_LIST.length)
-  // 정산 방향
-  const diffs = MEMBERS_LIST.map(n=>({ name:n, diff: paid[n]-fair }))
+  const fair  = Math.round(total/MEMBERS_LIST.length)
+  const diffs = MEMBERS_LIST.map(n=>({ name:n, diff: net[n] }))
   const creditors = diffs.filter(d=>d.diff>0).sort((a,b)=>b.diff-a.diff)
   const debtors   = diffs.filter(d=>d.diff<0).sort((a,b)=>a.diff-b.diff)
   // 정산 카드 생성
@@ -1461,8 +1471,23 @@ function openEditModal(id) {
     const [m,d] = tx.date.split('/')
     dateEl.value = `2026-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`
   }
+  document.getElementById('form-cat-section').style.display = tx.type==='personal' ? 'none' : ''
   renderPayerSelect(tx.type==='personal', isIncome)
   document.getElementById('form-payer-select').value = tx.payer
+  // 정산 섹션 복원
+  updateSplitSection()
+  if(tx.settleShare !== undefined && document.getElementById('form-split-section').style.display !== 'none') {
+    const N = MEMBERS_LIST.length
+    const autoShare = Math.round(tx.amount/N*(N-1))
+    let segLabel = '균등'
+    if(tx.settleShare === tx.amount) segLabel = '전액'
+    else if(tx.settleShare !== autoShare) segLabel = '직접 입력'
+    document.querySelectorAll('#form-split-seg .seg-btn').forEach(b=>b.classList.toggle('active',b.textContent.trim()===segLabel))
+    const customInp = document.getElementById('form-split-custom')
+    if(segLabel === '직접 입력') { customInp.style.display=''; customInp.value=tx.settleShare }
+    else customInp.style.display = 'none'
+    updateSplitHint()
+  }
   // 제목 변경
   document.getElementById('add-modal-title').textContent = '수정'
   openModal('add')
@@ -1670,6 +1695,13 @@ function openAddModal() {
   const typeSeg = document.querySelector('#form-expense-section .seg-control')
   if(typeSeg) { typeSeg.querySelectorAll('.seg-btn').forEach((b,i)=>b.classList.toggle('active',i===0)) }
   renderPayerSelect(false, false)
+  // 정산 섹션 리셋
+  const splitSeg = document.querySelector('#form-split-seg')
+  if(splitSeg) { splitSeg.querySelectorAll('.seg-btn').forEach((b,i)=>b.classList.toggle('active',i===0)) }
+  const splitCustom = document.getElementById('form-split-custom')
+  if(splitCustom) { splitCustom.style.display='none'; splitCustom.value='' }
+  document.getElementById('form-cat-section').style.display = ''
+  updateSplitSection()
   openModal('add')
 }
 function setAddMode(el, mode) {
@@ -1682,7 +1714,45 @@ function setAddMode(el, mode) {
 function onExpenseTypeChange(el) {
   setSeg(el)
   const isPersonal = el.textContent.trim() === '개인'
+  document.getElementById('form-cat-section').style.display = isPersonal ? 'none' : ''
   renderPayerSelect(isPersonal, false)
+  updateSplitSection()
+}
+function onPayerChange() { updateSplitSection() }
+function updateSplitSection() {
+  const modal = document.getElementById('modal-add')
+  const typeSeg = modal.querySelector('#form-expense-section .seg-btn.active')
+  const type = typeSeg?.textContent?.trim()
+  const payer = document.getElementById('form-payer-select')?.value
+  const isPersonal = type === '개인'
+  const isShared = payer && payer !== '공동' && !isPersonal
+  const sec = document.getElementById('form-split-section')
+  if(sec) sec.style.display = isShared ? '' : 'none'
+  if(isShared) updateSplitHint()
+}
+function onSplitChange() {
+  const seg = document.querySelector('#form-split-seg .seg-btn.active')?.textContent?.trim()
+  const customInp = document.getElementById('form-split-custom')
+  if(customInp) customInp.style.display = seg === '직접 입력' ? '' : 'none'
+  updateSplitHint()
+}
+function updateSplitHint() {
+  const hint = document.getElementById('form-split-hint')
+  if(!hint || document.getElementById('form-split-section').style.display === 'none') return
+  const seg = document.querySelector('#form-split-seg .seg-btn.active')?.textContent?.trim()
+  const amt = +(document.querySelector('.form-amount')?.value||0)
+  const payer = document.getElementById('form-payer-select')?.value?.replace(' (나)','')
+  const others = MEMBERS_LIST.filter(m => m !== payer)
+  const otherName = others.join(', ')
+  if(seg === '균등') {
+    const share = Math.round(amt / MEMBERS_LIST.length * (MEMBERS_LIST.length-1))
+    hint.textContent = amt ? `${otherName} → ${payer} ${fmt(share)}원` : ''
+  } else if(seg === '전액') {
+    hint.textContent = amt ? `${otherName} → ${payer} ${fmt(amt)}원` : ''
+  } else if(seg === '직접 입력') {
+    const custom = +(document.getElementById('form-split-custom')?.value||0)
+    hint.textContent = custom ? `${otherName} → ${payer} ${fmt(custom)}원` : '정산 받을 금액을 입력해 주세요.'
+  }
 }
 function saveAddForm() {
   const modal = document.getElementById('modal-add')
@@ -1699,6 +1769,17 @@ function saveAddForm() {
   const typeMap = {'공동':'shared','고정':'fixed','개인':'personal'}
   const type = isIncome ? 'income' : (typeMap[typeSeg?.textContent?.trim()]||'shared')
   const payer = payerEl ? payerEl.value.replace(' (나)','') : (currentUser||'슬')
+  // 정산 금액 계산
+  let settleShare = undefined
+  if(!isIncome && type !== 'personal' && payer !== '공동') {
+    const splitSec = document.getElementById('form-split-section')
+    if(splitSec && splitSec.style.display !== 'none') {
+      const seg = document.querySelector('#form-split-seg .seg-btn.active')?.textContent?.trim()
+      if(seg === '균등') settleShare = Math.round(amount / MEMBERS_LIST.length * (MEMBERS_LIST.length-1))
+      else if(seg === '전액') settleShare = amount
+      else if(seg === '직접 입력') settleShare = +(document.getElementById('form-split-custom')?.value||0) || Math.round(amount/MEMBERS_LIST.length*(MEMBERS_LIST.length-1))
+    }
+  }
   const tx = {
     id: nextId++,
     icon: isIncome ? 'bag' : 'food',
@@ -1711,10 +1792,11 @@ function saveAddForm() {
     amount,
     excluded: false,
     wrongCard: false,
+    ...(settleShare !== undefined ? {settleShare} : {}),
   }
   if(editingId !== null) {
     const idx = TXS.findIndex(t=>t.id===editingId)
-    if(idx>-1) { TXS[idx]={...TXS[idx], name:tx.name, cat:tx.cat, date:tx.date, payer:tx.payer, type:tx.type, amount:tx.amount} }
+    if(idx>-1) { TXS[idx]={...TXS[idx], name:tx.name, cat:tx.cat, date:tx.date, payer:tx.payer, type:tx.type, amount:tx.amount, settleShare:tx.settleShare} }
     editingId = null
   } else {
     TXS.unshift(tx)
