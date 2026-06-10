@@ -830,43 +830,9 @@ body {
   <div class="page" id="page-settle">
     <div class="page-header">
       <div class="page-title">정산</div>
-      <div class="page-sub">2026년 6월 기준.</div>
+      <div class="page-sub" id="settle-sub">2026년 6월 기준.</div>
     </div>
-
-    <div class="card" style="margin-bottom:12px">
-      <div class="section-title">요약</div>
-      <div style="background:var(--ink-04);border-radius:var(--r-sm);padding:12px 14px;box-shadow:var(--ring-inactive)">
-        <div style="font-size:13px;color:var(--ink-72);font-weight:700;margin-bottom:2px">균등 부담 기준 (1/2)</div>
-        <div style="font-size:13px;color:var(--ink-40);font-weight:500">각자 부담: <b style="color:var(--ink)">0원</b></div>
-      </div>
-    </div>
-
-    <div style="margin-bottom:8px">
-      <div style="font-size:11px;font-weight:700;color:var(--ink-40);letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px;padding:0 2px">미정산</div>
-      <div class="settle-card">
-        <div class="settle-from"><div class="settle-avatar">동</div><div class="settle-uname">동현</div></div>
-        <div class="settle-arrow"><span class="settle-arrow-icon">→</span><div class="settle-amt">0원</div><div style="font-size:11px;color:var(--ink-40);margin-top:2px;font-weight:500">미정산</div></div>
-        <div class="settle-from"><div class="settle-avatar">슬</div><div class="settle-uname">슬</div></div>
-        <button class="settle-btn settle-btn-done" onclick="markSettled(this)">완료</button>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="section-title">멤버 지출</div>
-      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;text-align:center">
-        <div style="padding:16px 10px;background:var(--ink-04);border-radius:var(--r-md);box-shadow:var(--ring-inactive)">
-          <div class="member-avatar" style="margin:0 auto 10px">슬</div>
-          <div style="font-size:13px;font-weight:700;color:var(--ink)">슬</div>
-          <div style="font-size:16px;font-weight:700;margin:4px 0;color:var(--ink);letter-spacing:-.04em">0원</div>
-          <div style="font-size:11px;color:var(--ink-40);font-weight:600">정산 없음.</div>
-        </div>
-        <div style="padding:16px 10px;background:var(--ink-04);border-radius:var(--r-md);box-shadow:var(--ring-inactive)">
-          <div class="member-avatar" style="margin:0 auto 10px">동</div>
-          <div style="font-size:13px;font-weight:700;color:var(--ink)">동현</div>
-          <div style="font-size:16px;font-weight:700;margin:4px 0;color:var(--ink);letter-spacing:-.04em">0원</div>
-          <div style="font-size:11px;color:var(--ink-40);font-weight:600">정산 없음.</div>
-        </div>
-      </div>
+    <div id="settle-content">
     </div>
   </div>
 
@@ -912,9 +878,9 @@ body {
       <div class="form-group">
         <label class="form-label">지출 유형</label>
         <div class="seg-control">
-          <div class="seg-btn active" onclick="setSeg(this)">공동</div>
-          <div class="seg-btn" onclick="setSeg(this)">고정</div>
-          <div class="seg-btn" onclick="setSeg(this)">개인</div>
+          <div class="seg-btn active" onclick="onExpenseTypeChange(this)">공동</div>
+          <div class="seg-btn" onclick="onExpenseTypeChange(this)">고정</div>
+          <div class="seg-btn" onclick="onExpenseTypeChange(this)">개인</div>
         </div>
       </div>
     </div>
@@ -935,9 +901,7 @@ body {
     <div class="form-row">
       <div class="form-group" style="margin:0">
         <label class="form-label" id="form-payer-label">결제자</label>
-        <select class="form-input" id="form-payer-select" style="appearance:none">
-          <option>슬 (나)</option><option>동현</option>
-        </select>
+        <select class="form-input" id="form-payer-select" style="appearance:none"></select>
       </div>
       <div class="form-group" style="margin:0">
         <label class="form-label">날짜</label>
@@ -1225,10 +1189,71 @@ function renderTxList() {
   if (home) home.innerHTML = visible.slice(0,4).map(txHTML).join('')
   renderWrongCardBanner()
   renderBalanceCard()
+  renderSettle()
   const sharedTotal = TXS.filter(t=>t.type==='shared').reduce((s,t)=>s+t.amount,0)
   const fixedTotal  = TXS.filter(t=>t.type==='fixed').reduce((s,t)=>s+t.amount,0)
   const ss=document.getElementById('sum-shared'); if(ss) ss.textContent=fmt(sharedTotal)
   const sf=document.getElementById('sum-fixed');  if(sf) sf.textContent=fmt(fixedTotal)
+}
+function renderSettle() {
+  const el = document.getElementById('settle-content')
+  if(!el) return
+  // 개인결제 공동지출만 (공동-payer 제외, income/personal 제외)
+  const splits = TXS.filter(t=>t.type!=='income'&&t.type!=='personal'&&t.payer!=='공동')
+  const paid = {}
+  MEMBERS_LIST.forEach(n=>paid[n]=0)
+  splits.forEach(t=>{ if(paid[t.payer]!==undefined) paid[t.payer]+=t.amount })
+  const total = Object.values(paid).reduce((s,v)=>s+v,0)
+  const fair = Math.round(total/MEMBERS_LIST.length)
+  // 정산 방향
+  const diffs = MEMBERS_LIST.map(n=>({ name:n, diff: paid[n]-fair }))
+  const creditors = diffs.filter(d=>d.diff>0).sort((a,b)=>b.diff-a.diff)
+  const debtors   = diffs.filter(d=>d.diff<0).sort((a,b)=>a.diff-b.diff)
+  // 정산 카드 생성
+  const settles = []
+  const cr=[...creditors.map(c=>({...c}))], de=[...debtors.map(d=>({...d}))]
+  let ci=0, di=0
+  while(ci<cr.length&&di<de.length){
+    const amt = Math.min(cr[ci].diff, -de[di].diff)
+    if(amt>0) settles.push({ from:de[di].name, to:cr[ci].name, amt })
+    cr[ci].diff -= amt; de[di].diff += amt
+    if(cr[ci].diff<=0) ci++
+    if(de[di].diff>=0) di++
+  }
+  const memberGrid = MEMBERS_LIST.map(n=>{
+    const d = diffs.find(x=>x.name===n)
+    const sub = d.diff>0 ? `+${fmt(d.diff)} 받을 것.` : d.diff<0 ? `−${fmt(-d.diff)} 줄 것.` : '정산 없음.'
+    const subColor = d.diff>0?'var(--ink-72)':d.diff<0?'var(--ink-40)':'var(--ink-40)'
+    return `<div style="padding:16px 10px;background:var(--ink-04);border-radius:var(--r-md);box-shadow:var(--ring-inactive);text-align:center">
+      <div class="member-avatar" style="margin:0 auto 10px">${n[0]}</div>
+      <div style="font-size:13px;font-weight:700;color:var(--ink)">${n}</div>
+      <div style="font-size:16px;font-weight:700;margin:4px 0;color:var(--ink);letter-spacing:-.04em">${fmt(paid[n])}원</div>
+      <div style="font-size:11px;color:${subColor};font-weight:600">${sub}</div>
+    </div>`
+  }).join('')
+  const settleCards = settles.length ? settles.map(s=>`
+    <div class="settle-card">
+      <div class="settle-from"><div class="settle-avatar">${s.from[0]}</div><div class="settle-uname">${s.from}</div></div>
+      <div class="settle-arrow"><span class="settle-arrow-icon">→</span><div class="settle-amt">${fmt(s.amt)}원</div><div style="font-size:11px;color:var(--ink-40);margin-top:2px;font-weight:500">미정산</div></div>
+      <div class="settle-from"><div class="settle-avatar">${s.to[0]}</div><div class="settle-uname">${s.to}</div></div>
+      <button class="settle-btn settle-btn-done" onclick="markSettled(this)">완료</button>
+    </div>`).join('') : `<div style="text-align:center;padding:20px 0;color:var(--ink-40);font-size:13px;font-weight:500">정산할 내역이 없어요.</div>`
+  el.innerHTML = `
+    <div class="card" style="margin-bottom:12px">
+      <div class="section-title">요약</div>
+      <div style="background:var(--ink-04);border-radius:var(--r-sm);padding:12px 14px;box-shadow:var(--ring-inactive)">
+        <div style="font-size:13px;color:var(--ink-72);font-weight:700;margin-bottom:2px">균등 부담 기준 (1/2)</div>
+        <div style="font-size:13px;color:var(--ink-40);font-weight:500">각자 부담: <b style="color:var(--ink)">${fmt(fair)}원</b></div>
+      </div>
+    </div>
+    <div style="margin-bottom:8px">
+      <div style="font-size:11px;font-weight:700;color:var(--ink-40);letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px;padding:0 2px">미정산</div>
+      ${settleCards}
+    </div>
+    <div class="card">
+      <div class="section-title">멤버 지출</div>
+      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px">${memberGrid}</div>
+    </div>`
 }
 function renderBalanceCard() {
   const income  = TXS.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0)
@@ -1241,8 +1266,8 @@ function renderBalanceCard() {
   if(detailEl) detailEl.textContent = '수입 '+fmt(income)+'원 · 지출 '+fmt(expense)+'원'
   if(membersEl) {
     membersEl.innerHTML = MEMBERS_LIST.map(name=>{
-      const paid = TXS.filter(t=>t.type!=='income'&&t.type!=='personal'&&t.payer===name).reduce((s,t)=>s+t.amount,0)
-      return `<div class="member-chip"><div class="member-dot"></div>${name} ${fmt(paid)}원</div>`
+      const paidAmt = TXS.filter(t=>t.type!=='income'&&t.type!=='personal'&&t.payer===name).reduce((s,t)=>s+t.amount,0)
+      return `<div class="member-chip"><div class="member-dot"></div>${name} ${fmt(paidAmt)}원</div>`
     }).join('')
   }
 }
@@ -1417,14 +1442,43 @@ function setAddMode(el, mode) {
   document.getElementById('add-name-input').placeholder = mode==='income' ? '월급, 용돈, 이자 등' : '이마트 장보기'
   document.getElementById('form-payer-label').textContent = mode==='income' ? '수령인' : '결제자'
 }
+function renderPayerSelect(isPersonal, isIncome) {
+  const sel = document.getElementById('form-payer-select')
+  if(!sel) return
+  const label = document.getElementById('form-payer-label')
+  if(label) label.textContent = isIncome ? '수령인' : '결제자'
+  if(isPersonal) {
+    sel.innerHTML = MEMBERS_LIST.map(n=>`<option value="${n}">${n}${n===currentUser?' (나)':''}</option>`).join('')
+    sel.value = currentUser || MEMBERS_LIST[0]
+  } else {
+    sel.innerHTML = MEMBERS_LIST.map(n=>`<option value="${n}">${n}${n===currentUser?' (나)':''}</option>`).join('')
+      + '<option value="공동">공동</option>'
+    if(currentUser) sel.value = currentUser
+  }
+}
 function openAddModal() {
   const chips = document.getElementById('form-cat-chips')
   if(chips) chips.innerHTML = CATS.map((c,i)=>`<div class="cat-chip${i===0?' active':''}" onclick="setCat(this)">${c.name}</div>`).join('')+'<div class="cat-chip" onclick="setCat(this)">기타</div>'
   document.querySelectorAll('.form-expense-only').forEach(e=>e.style.display='')
-  // 결제자 기본값 = 로그인 유저
-  const sel=document.getElementById('form-payer-select')
-  if(sel&&currentUser) sel.value=currentUser+(currentUser===ADMIN?'':'')||sel.options[0].value
+  // 유형 세그먼트 기본값 리셋
+  const firstSeg = document.querySelector('#modal-add .seg-control:first-of-type')
+  if(firstSeg) { firstSeg.querySelectorAll('.seg-btn').forEach((b,i)=>b.classList.toggle('active',i===0)) }
+  const typeSeg = document.querySelector('#form-expense-section .seg-control')
+  if(typeSeg) { typeSeg.querySelectorAll('.seg-btn').forEach((b,i)=>b.classList.toggle('active',i===0)) }
+  renderPayerSelect(false, false)
   openModal('add')
+}
+function setAddMode(el, mode) {
+  setSeg(el)
+  const isIncome = mode === 'income'
+  document.querySelectorAll('.form-expense-only').forEach(e=>e.style.display = isIncome ? 'none' : '')
+  document.getElementById('add-name-input').placeholder = isIncome ? '월급, 용돈, 이자 등' : '이마트 장보기'
+  renderPayerSelect(false, isIncome)
+}
+function onExpenseTypeChange(el) {
+  setSeg(el)
+  const isPersonal = el.textContent.trim() === '개인'
+  renderPayerSelect(isPersonal, false)
 }
 function saveAddForm() {
   const modal = document.getElementById('modal-add')
