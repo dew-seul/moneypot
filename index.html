@@ -1048,14 +1048,28 @@ const ICON = {
 
 const CAT_COLORS = ['var(--cat-food)','var(--cat-utility)','var(--cat-transport)','var(--cat-leisure)','var(--cat-goods)','var(--cat-sub)','var(--ink-40)']
 const DEFAULT_CATS = [
-  { name:'식비',   color:'var(--cat-food)',      budget:150000 },
-  { name:'공과금', color:'var(--cat-utility)',   budget:100000 },
-  { name:'교통비', color:'var(--cat-transport)', budget:60000  },
-  { name:'여가',   color:'var(--cat-leisure)',   budget:80000  },
-  { name:'생필품', color:'var(--cat-goods)',     budget:70000  },
-  { name:'구독',   color:'var(--cat-sub)',       budget:20000  },
+  { name:'전세대출',         color:'var(--cat-food)',      budget:701867  },
+  { name:'저축',             color:'var(--cat-leisure)',   budget:2200000 },
+  { name:'차량교통비',       color:'var(--cat-transport)', budget:420000  },
+  { name:'보험(종합,실비)',  color:'var(--cat-sub)',       budget:357000  },
+  { name:'식비',             color:'var(--cat-food)',      budget:500000  },
+  { name:'보험(차량,운전자)',color:'var(--cat-transport)', budget:90000   },
+  { name:'핸드폰통신비',     color:'var(--cat-utility)',   budget:139600  },
+  { name:'OTT',              color:'var(--cat-leisure)',   budget:37000   },
+  { name:'인터넷,tv',        color:'var(--cat-utility)',   budget:36000   },
+  { name:'정수기',           color:'var(--cat-utility)',   budget:45000   },
+  { name:'생필품',           color:'var(--cat-goods)',     budget:null    },
+  { name:'관리비',           color:'var(--cat-utility)',   budget:null    },
+  { name:'전기상하수',       color:'var(--cat-utility)',   budget:null    },
 ]
+const DEFAULT_ALLOWANCES = { '동현': 400000, '슬': 600000 }
+const CATS_VER = '3'
 function loadCats() {
+  if(localStorage.getItem('mp_cats_ver')!==CATS_VER) {
+    localStorage.removeItem('mp_cats')
+    localStorage.setItem('mp_cats_ver', CATS_VER)
+    Object.entries(DEFAULT_ALLOWANCES).forEach(([n,v])=>{ if(!localStorage.getItem('mp_allow_'+n)) localStorage.setItem('mp_allow_'+n,v) })
+  }
   try { const s=localStorage.getItem('mp_cats'); return s?JSON.parse(s):JSON.parse(JSON.stringify(DEFAULT_CATS)) } catch(e){ return JSON.parse(JSON.stringify(DEFAULT_CATS)) }
 }
 function saveCats() { localStorage.setItem('mp_cats', JSON.stringify(CATS)) }
