@@ -575,6 +575,27 @@ body {
 }
 .login-chip-label { font-size: 12px; color: var(--ink-40); font-weight: 600; }
 #summary-personal { display: none; }
+.amount-income { color: var(--ink); font-weight: 700; letter-spacing: -.03em; }
+.budget-edit-name-input {
+  flex: 1; border: none; outline: none; font-size: 14px; font-weight: 600;
+  color: var(--ink); background: transparent; font-family: var(--font);
+  min-width: 0;
+}
+.budget-edit-del {
+  width: 24px; height: 24px; border-radius: 50%;
+  background: var(--ink-06); border: none; cursor: pointer;
+  font-size: 14px; color: var(--ink-40); display: flex; align-items: center; justify-content: center;
+  font-family: var(--font); flex-shrink: 0;
+}
+.budget-edit-del:active { background: var(--ink-10); }
+.budget-add-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 0; cursor: pointer;
+  font-size: 13px; font-weight: 600; color: var(--ink-40);
+  border: none; background: none; font-family: var(--font); width: 100%;
+}
+.form-income-only { display: none; }
+.form-expense-only { }
 </style>
 </head>
 <body>
@@ -642,10 +663,10 @@ body {
     </div>
 
     <div class="balance-card">
-      <div class="balance-label">공동 지출</div>
-      <div class="balance-amount">0원</div>
-      <div class="balance-period">이번 달 지출 없음.</div>
-      <div class="balance-members">
+      <div class="balance-label">이번 달</div>
+      <div class="balance-amount" id="balance-net">0원</div>
+      <div class="balance-period" id="balance-detail">수입 0원 · 지출 0원</div>
+      <div class="balance-members" id="balance-members">
         <div class="member-chip"><div class="member-dot"></div>슬 0원</div>
         <div class="member-chip"><div class="member-dot"></div>동현 0원</div>
       </div>
@@ -872,7 +893,7 @@ body {
   </div>
 </nav>
 
-<div class="fab" onclick="openModal('add')">
+<div class="fab" onclick="openAddModal()">
   <svg viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
 </div>
 
@@ -880,13 +901,21 @@ body {
 <div class="modal-overlay" id="modal-add" onclick="closeModalOutside(event,'modal-add')">
   <div class="modal">
     <div class="modal-handle"></div>
-    <div class="modal-title">지출 기록</div>
+    <div class="modal-title" id="add-modal-title">기록 추가</div>
     <div class="form-group">
-      <label class="form-label">유형</label>
       <div class="seg-control">
-        <div class="seg-btn active" onclick="setSeg(this)">공동 지출</div>
-        <div class="seg-btn" onclick="setSeg(this)">고정 지출</div>
-        <div class="seg-btn" onclick="setSeg(this)">개인 지출</div>
+        <div class="seg-btn active" onclick="setAddMode(this,'expense')">지출</div>
+        <div class="seg-btn" onclick="setAddMode(this,'income')">수입</div>
+      </div>
+    </div>
+    <div class="form-expense-only" id="form-expense-section">
+      <div class="form-group">
+        <label class="form-label">지출 유형</label>
+        <div class="seg-control">
+          <div class="seg-btn active" onclick="setSeg(this)">공동</div>
+          <div class="seg-btn" onclick="setSeg(this)">고정</div>
+          <div class="seg-btn" onclick="setSeg(this)">개인</div>
+        </div>
       </div>
     </div>
     <div class="form-group">
@@ -895,24 +924,18 @@ body {
     </div>
     <div class="form-group">
       <label class="form-label">내용</label>
-      <input class="form-input" type="text" placeholder="이마트 장보기">
+      <input class="form-input" id="add-name-input" type="text" placeholder="이마트 장보기">
     </div>
-    <div class="form-group">
-      <label class="form-label">카테고리</label>
-      <div class="cat-chips">
-        <div class="cat-chip active" onclick="setCat(this)">식비</div>
-        <div class="cat-chip" onclick="setCat(this)">생필품</div>
-        <div class="cat-chip" onclick="setCat(this)">교통비</div>
-        <div class="cat-chip" onclick="setCat(this)">공과금</div>
-        <div class="cat-chip" onclick="setCat(this)">여가</div>
-        <div class="cat-chip" onclick="setCat(this)">구독</div>
-        <div class="cat-chip" onclick="setCat(this)">기타</div>
+    <div class="form-expense-only">
+      <div class="form-group">
+        <label class="form-label">카테고리</label>
+        <div class="cat-chips" id="form-cat-chips"></div>
       </div>
     </div>
     <div class="form-row">
       <div class="form-group" style="margin:0">
-        <label class="form-label">결제자</label>
-        <select class="form-input" style="appearance:none">
+        <label class="form-label" id="form-payer-label">결제자</label>
+        <select class="form-input" id="form-payer-select" style="appearance:none">
           <option>슬 (나)</option><option>동현</option>
         </select>
       </div>
@@ -921,12 +944,14 @@ body {
         <input class="form-input" type="date" value="2026-06-10">
       </div>
     </div>
-    <div class="form-group">
-      <label class="form-label">부담 방식</label>
-      <div class="seg-control">
-        <div class="seg-btn active" onclick="setSeg(this)">균등 (1/n)</div>
-        <div class="seg-btn" onclick="setSeg(this)">비율 설정</div>
-        <div class="seg-btn" onclick="setSeg(this)">결제자 전액</div>
+    <div class="form-expense-only" id="form-split-section">
+      <div class="form-group">
+        <label class="form-label">부담 방식</label>
+        <div class="seg-control">
+          <div class="seg-btn active" onclick="setSeg(this)">균등 (1/n)</div>
+          <div class="seg-btn" onclick="setSeg(this)">비율 설정</div>
+          <div class="seg-btn" onclick="setSeg(this)">결제자 전액</div>
+        </div>
       </div>
     </div>
     <div style="height:12px"></div>
@@ -1021,14 +1046,20 @@ const ICON = {
   water: `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21a9 9 0 009-9c0-4.136-4.5-9-9-12C7.5 3 3 7.864 3 12a9 9 0 009 9z"/></svg>`,
 }
 
-const CATS = [
-  { name:'식비',   color:'var(--cat-food)',      spent:0, budget:150000 },
-  { name:'공과금', color:'var(--cat-utility)',   spent:0, budget:100000 },
-  { name:'교통비', color:'var(--cat-transport)', spent:0, budget:60000  },
-  { name:'여가',   color:'var(--cat-leisure)',   spent:0, budget:80000  },
-  { name:'생필품', color:'var(--cat-goods)',     spent:0, budget:70000  },
-  { name:'구독',   color:'var(--cat-sub)',       spent:0, budget:20000  },
+const CAT_COLORS = ['var(--cat-food)','var(--cat-utility)','var(--cat-transport)','var(--cat-leisure)','var(--cat-goods)','var(--cat-sub)','var(--ink-40)']
+const DEFAULT_CATS = [
+  { name:'식비',   color:'var(--cat-food)',      budget:150000 },
+  { name:'공과금', color:'var(--cat-utility)',   budget:100000 },
+  { name:'교통비', color:'var(--cat-transport)', budget:60000  },
+  { name:'여가',   color:'var(--cat-leisure)',   budget:80000  },
+  { name:'생필품', color:'var(--cat-goods)',     budget:70000  },
+  { name:'구독',   color:'var(--cat-sub)',       budget:20000  },
 ]
+function loadCats() {
+  try { const s=localStorage.getItem('mp_cats'); return s?JSON.parse(s):JSON.parse(JSON.stringify(DEFAULT_CATS)) } catch(e){ return JSON.parse(JSON.stringify(DEFAULT_CATS)) }
+}
+function saveCats() { localStorage.setItem('mp_cats', JSON.stringify(CATS)) }
+let CATS = loadCats()
 
 const TXS = []
 
@@ -1132,11 +1163,14 @@ function renderAuth() {
   renderAllBudgets()
 }
 
-const typeLabel = { shared:'공동', fixed:'고정', personal:'개인' }
-const typeRing  = { shared:'box-shadow:var(--ring-active);color:var(--ink);', fixed:'', personal:'' }
+const typeLabel = { shared:'공동', fixed:'고정', personal:'개인', income:'수입' }
+const typeRing  = { shared:'box-shadow:var(--ring-active);color:var(--ink);', fixed:'', personal:'', income:'box-shadow:var(--ring-inactive);color:var(--ink-72);' }
 function fmt(n) { return n.toLocaleString('ko-KR') }
 
 function txHTML(tx) {
+  const isIncome = tx.type==='income'
+  const amtClass = isIncome?'amount-income':tx.type==='shared'?'amount-shared':tx.type==='fixed'?'amount-fixed':'amount-personal'
+  const amtStr = isIncome ? `+${fmt(tx.amount)}원` : `−${fmt(tx.amount)}원`
   return `
     <div class="tx-item${tx.excluded?' tx-excluded':''}" data-id="${tx.id}"
          oncontextmenu="openCtxMenu(event,${tx.id})"
@@ -1146,14 +1180,14 @@ function txHTML(tx) {
       <div class="tx-info">
         <div class="tx-name">${tx.name}</div>
         <div class="tx-meta">
-          <span class="tx-cat">${tx.cat}</span>
+          ${tx.cat?`<span class="tx-cat">${tx.cat}</span>`:''}
           ${tx.date} · ${tx.payer}
           <span class="settle-tag" style="${typeRing[tx.type]}">${typeLabel[tx.type]}</span>
           ${tx.excluded?'<span class="badge-excluded">통계 제외</span>':''}
           ${tx.wrongCard?'<span class="badge-wrongcard">오결제</span>':''}
         </div>
       </div>
-      <div class="tx-amount ${tx.type==='shared'?'amount-shared':tx.type==='fixed'?'amount-fixed':'amount-personal'}">−${fmt(tx.amount)}원</div>
+      <div class="tx-amount ${amtClass}">${amtStr}</div>
     </div>`
 }
 
@@ -1163,15 +1197,31 @@ function visibleTxs() {
 function renderTxList() {
   const visible = visibleTxs()
   const el = document.getElementById('tx-list')
-  if (el) el.innerHTML = visible.map(txHTML).join('')
+  if (el) el.innerHTML = visible.length ? visible.map(txHTML).join('') : '<div style="text-align:center;padding:40px 0;color:var(--ink-40);font-size:13px;font-weight:500">기록이 없어요.</div>'
   const home = document.getElementById('home-tx-list')
   if (home) home.innerHTML = visible.slice(0,4).map(txHTML).join('')
   renderWrongCardBanner()
-  // 공동/고정 summary 업데이트
+  renderBalanceCard()
   const sharedTotal = TXS.filter(t=>t.type==='shared').reduce((s,t)=>s+t.amount,0)
   const fixedTotal  = TXS.filter(t=>t.type==='fixed').reduce((s,t)=>s+t.amount,0)
   const ss=document.getElementById('sum-shared'); if(ss) ss.textContent=fmt(sharedTotal)
   const sf=document.getElementById('sum-fixed');  if(sf) sf.textContent=fmt(fixedTotal)
+}
+function renderBalanceCard() {
+  const income  = TXS.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0)
+  const expense = TXS.filter(t=>t.type!=='income'&&t.type!=='personal').reduce((s,t)=>s+t.amount,0)
+  const net = income - expense
+  const netEl = document.getElementById('balance-net')
+  const detailEl = document.getElementById('balance-detail')
+  const membersEl = document.getElementById('balance-members')
+  if(netEl) netEl.textContent = (net>=0?'+':'')+fmt(net)+'원'
+  if(detailEl) detailEl.textContent = '수입 '+fmt(income)+'원 · 지출 '+fmt(expense)+'원'
+  if(membersEl) {
+    membersEl.innerHTML = MEMBERS_LIST.map(name=>{
+      const paid = TXS.filter(t=>t.type!=='income'&&t.type!=='personal'&&t.payer===name).reduce((s,t)=>s+t.amount,0)
+      return `<div class="member-chip"><div class="member-dot"></div>${name} ${fmt(paid)}원</div>`
+    }).join('')
+  }
 }
 
 function renderWrongCardBanner() {
@@ -1251,19 +1301,41 @@ function renderBudgetRow(cat, compact) {
     </div>`
 }
 
+function allowanceBudgetRows(compact) {
+  return MEMBERS_LIST.map(name => {
+    const spent = TXS.filter(t=>t.type==='personal'&&t.payer===name).reduce((s,t)=>s+t.amount,0)
+    const budget = getAllowance(name)
+    const fakeCat = { name: name+' 용돈', color:'var(--ink-24)', spent, budget }
+    return renderBudgetRow(fakeCat, compact)
+  }).join('')
+}
 function renderAllBudgets() {
-  document.getElementById('home-budget-list').innerHTML  = CATS.map(c=>renderBudgetRow(c,true)).join('')
-  document.getElementById('stats-budget-list').innerHTML = CATS.map(c=>renderBudgetRow(c,false)).join('')
+  const catRows = CATS.map(c=>{
+    const spent = TXS.filter(t=>t.type!=='income'&&t.type!=='personal'&&t.cat===c.name).reduce((s,t)=>s+t.amount,0)
+    return renderBudgetRow({...c, spent}, true)
+  }).join('')
+  const allowRows = allowanceBudgetRows(true)
+  document.getElementById('home-budget-list').innerHTML  = catRows + allowRows
+  const catRowsFull = CATS.map(c=>{
+    const spent = TXS.filter(t=>t.type!=='income'&&t.type!=='personal'&&t.cat===c.name).reduce((s,t)=>s+t.amount,0)
+    return renderBudgetRow({...c, spent}, false)
+  }).join('')
+  document.getElementById('stats-budget-list').innerHTML = catRowsFull + allowanceBudgetRows(false)
 }
 
 function renderBudgetEditRows() {
   document.getElementById('budget-edit-rows').innerHTML = CATS.map((c,i)=>`
     <div class="budget-edit-row">
       <div class="budget-edit-dot" style="background:${c.color}"></div>
-      <div class="budget-edit-name">${c.name}</div>
+      <input class="budget-edit-name-input" type="text" value="${c.name}" data-idx="${i}" placeholder="카테고리명">
       <input class="budget-edit-input" type="number" inputmode="numeric" value="${c.budget||''}" placeholder="한도 없음" data-idx="${i}">
       <span class="budget-unit">원</span>
-    </div>`).join('')
+      <button class="budget-edit-del" onclick="deleteCatRow(${i})" title="삭제">×</button>
+    </div>`).join('')+`
+  <button class="budget-add-row" onclick="addCatRow()">
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+    카테고리 추가
+  </button>`
   document.getElementById('allowance-edit-rows').innerHTML = MEMBERS_LIST.map(name=>`
     <div class="budget-edit-row">
       <div class="budget-edit-dot" style="background:var(--ink-24)"></div>
@@ -1271,6 +1343,13 @@ function renderBudgetEditRows() {
       <input class="allowance-edit-input" type="number" inputmode="numeric" value="${getAllowance(name)||''}" placeholder="한도 없음" data-name="${name}">
       <span class="budget-unit">원</span>
     </div>`).join('')
+}
+function deleteCatRow(i) { CATS.splice(i,1); saveCats(); renderBudgetEditRows() }
+function addCatRow() {
+  const color = CAT_COLORS[CATS.length % CAT_COLORS.length]
+  CATS.push({ name:'새 카테고리', color, budget:null })
+  saveCats(); renderBudgetEditRows()
+  setTimeout(()=>{ const inputs=document.querySelectorAll('.budget-edit-name-input'); const last=inputs[inputs.length-2]; if(last){last.focus();last.select()} },50)
 }
 
 renderAllBudgets()
@@ -1294,18 +1373,34 @@ function closeModal(id) { document.getElementById(id).classList.remove('open') }
 function closeModalOutside(e,id) { if(e.target===document.getElementById(id))closeModal(id) }
 function openBudgetModal() { renderBudgetEditRows(); document.getElementById('modal-budget').classList.add('open') }
 function saveBudget() {
+  document.querySelectorAll('#budget-edit-rows .budget-edit-name-input').forEach(input=>{
+    if(CATS[+input.dataset.idx]) CATS[+input.dataset.idx].name = input.value.trim()||CATS[+input.dataset.idx].name
+  })
   document.querySelectorAll('#budget-edit-rows .budget-edit-input').forEach(input=>{
-    CATS[+input.dataset.idx].budget = input.value ? +input.value : null
+    if(CATS[+input.dataset.idx]) CATS[+input.dataset.idx].budget = input.value ? +input.value : null
   })
   document.querySelectorAll('#allowance-edit-rows .allowance-edit-input').forEach(input=>{
     saveAllowance(input.dataset.name, input.value ? +input.value : 0)
   })
-  renderAllBudgets(); renderAuth(); closeModal('modal-budget')
+  saveCats(); renderAllBudgets(); renderAuth(); closeModal('modal-budget')
 }
 
 function setSeg(el) { el.closest('.seg-control').querySelectorAll('.seg-btn').forEach(b=>b.classList.remove('active')); el.classList.add('active') }
 function setCat(el) { document.querySelectorAll('.cat-chip').forEach(c=>c.classList.remove('active')); el.classList.add('active') }
 function setTab(el) { el.closest('.tabs').querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active')); el.classList.add('active') }
+function setAddMode(el, mode) {
+  setSeg(el)
+  document.querySelectorAll('.form-expense-only').forEach(e=>e.style.display = mode==='expense'?'':'none')
+  document.getElementById('add-name-input').placeholder = mode==='income' ? '월급, 용돈, 이자 등' : '이마트 장보기'
+  document.getElementById('form-payer-label').textContent = mode==='income' ? '수령인' : '결제자'
+}
+function openAddModal() {
+  // 카테고리 칩 동적 렌더
+  const chips = document.getElementById('form-cat-chips')
+  if(chips) chips.innerHTML = CATS.map((c,i)=>`<div class="cat-chip${i===0?' active':''}" onclick="setCat(this)">${c.name}</div>`).join('')+'<div class="cat-chip" onclick="setCat(this)">기타</div>'
+  document.querySelectorAll('.form-expense-only').forEach(e=>e.style.display='')
+  openModal('add')
+}
 let currentMonth = 6
 function changeMonth(d) { currentMonth=Math.max(1,Math.min(12,currentMonth+d)); document.getElementById('stat-month').textContent=currentMonth+'월' }
 function markSettled(btn) {
