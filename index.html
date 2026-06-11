@@ -823,24 +823,14 @@ body {
     <div class="card">
       <div class="section-title">카테고리</div>
       <div class="chart-wrap" style="height:180px">
-        <svg class="donut-svg" width="180" height="180" viewBox="0 0 180 180">
-          <circle cx="90" cy="90" r="60" fill="none" stroke="var(--cat-food)"      stroke-width="26" stroke-dasharray="128 258" stroke-dashoffset="0"    transform="rotate(-90 90 90)"/>
-          <circle cx="90" cy="90" r="60" fill="none" stroke="var(--cat-utility)"   stroke-width="26" stroke-dasharray="83 303"  stroke-dashoffset="-128"  transform="rotate(-90 90 90)"/>
-          <circle cx="90" cy="90" r="60" fill="none" stroke="var(--cat-transport)" stroke-width="26" stroke-dasharray="68 318"  stroke-dashoffset="-211"  transform="rotate(-90 90 90)"/>
-          <circle cx="90" cy="90" r="60" fill="none" stroke="var(--cat-leisure)"   stroke-width="26" stroke-dasharray="53 333"  stroke-dashoffset="-279"  transform="rotate(-90 90 90)"/>
-          <circle cx="90" cy="90" r="60" fill="none" stroke="var(--cat-goods)"     stroke-width="26" stroke-dasharray="45 341"  stroke-dashoffset="-332"  transform="rotate(-90 90 90)"/>
-        </svg>
+        <svg class="donut-svg" id="stats-donut" width="180" height="180" viewBox="0 0 180 180"></svg>
         <div class="donut-center">
-          <div class="donut-total">0</div>
+          <div class="donut-total" id="donut-total">0</div>
           <div class="donut-sub">총 지출</div>
         </div>
       </div>
       <div style="height:8px"></div>
-      <div class="cat-row"><div class="cat-dot" style="background:var(--cat-food)"></div><div class="cat-name">식비</div><div class="cat-pct">0%</div><div class="cat-amt">0원</div></div>
-      <div class="cat-row"><div class="cat-dot" style="background:var(--cat-utility)"></div><div class="cat-name">공과금</div><div class="cat-pct">0%</div><div class="cat-amt">0원</div></div>
-      <div class="cat-row"><div class="cat-dot" style="background:var(--cat-transport)"></div><div class="cat-name">교통비</div><div class="cat-pct">0%</div><div class="cat-amt">0원</div></div>
-      <div class="cat-row"><div class="cat-dot" style="background:var(--cat-leisure)"></div><div class="cat-name">여가</div><div class="cat-pct">0%</div><div class="cat-amt">0원</div></div>
-      <div class="cat-row"><div class="cat-dot" style="background:var(--cat-goods)"></div><div class="cat-name">생필품</div><div class="cat-pct">0%</div><div class="cat-amt">0원</div></div>
+      <div id="stats-cat-rows"></div>
     </div>
 
     <div class="card">
@@ -853,46 +843,13 @@ body {
 
     <div class="card">
       <div class="section-title">멤버별</div>
-      <div class="member-stat">
-        <div class="member-avatar">슬</div>
-        <div style="flex:1">
-          <div style="display:flex;justify-content:space-between;align-items:baseline">
-            <div class="member-name">슬</div><div class="member-amount">0원</div>
-          </div>
-          <div style="display:flex;align-items:center;gap:8px;margin-top:6px">
-            <div class="member-bar-wrap"><div class="member-bar" style="width:0%"></div></div>
-            <div class="member-pct">0%</div>
-          </div>
-        </div>
-      </div>
-      <div class="member-stat">
-        <div class="member-avatar">동</div>
-        <div style="flex:1">
-          <div style="display:flex;justify-content:space-between;align-items:baseline">
-            <div class="member-name">동현</div><div class="member-amount">0원</div>
-          </div>
-          <div style="display:flex;align-items:center;gap:8px;margin-top:6px">
-            <div class="member-bar-wrap"><div class="member-bar" style="width:0%"></div></div>
-            <div class="member-pct">0%</div>
-          </div>
-        </div>
-      </div>
+      <div id="stats-member-list"></div>
     </div>
 
     <div class="card">
       <div class="section-title">월별 추이</div>
-      <div style="display:flex;align-items:flex-end;gap:6px;height:90px;padding:6px 0">
-        <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px"><div style="height:55px;width:100%;background:var(--ink-06);border-radius:4px 4px 0 0"></div><div style="font-size:11px;color:var(--ink-40);font-weight:500">3월</div></div>
-        <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px"><div style="height:72px;width:100%;background:var(--ink-06);border-radius:4px 4px 0 0"></div><div style="font-size:11px;color:var(--ink-40);font-weight:500">4월</div></div>
-        <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px"><div style="height:72px;width:100%;background:var(--ink-06);border-radius:4px 4px 0 0"></div><div style="font-size:11px;color:var(--ink-40);font-weight:500">5월</div></div>
-        <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px"><div style="height:86px;width:100%;background:var(--ink);border-radius:4px 4px 0 0"></div><div style="font-size:11px;color:var(--ink);font-weight:700">6월</div></div>
-      </div>
-      <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:10px">
-        <span style="font-size:12px;color:var(--ink-40);font-weight:500">3월 <b style="color:var(--ink-72)">0원</b></span>
-        <span style="font-size:12px;color:var(--ink-40);font-weight:500">4월 <b style="color:var(--ink-72)">0원</b></span>
-        <span style="font-size:12px;color:var(--ink-40);font-weight:500">5월 <b style="color:var(--ink-72)">0원</b></span>
-        <span style="font-size:12px;color:var(--ink);font-weight:700">6월 <b>0원</b></span>
-      </div>
+      <div id="stats-month-bars" style="display:flex;align-items:flex-end;gap:6px;height:90px;padding:6px 0"></div>
+      <div id="stats-month-labels" style="display:flex;gap:12px;flex-wrap:wrap;margin-top:10px"></div>
     </div>
   </div>
 
@@ -1325,6 +1282,7 @@ function renderTxList() {
   renderWrongCardBanner()
   renderBalanceCard()
   renderSettle()
+  renderStats()
   const sharedTotal = TXS.filter(t=>t.type==='shared').reduce((s,t)=>s+t.amount,0)
   const fixedTotal  = TXS.filter(t=>t.type==='fixed').reduce((s,t)=>s+t.amount,0)
   const ss=document.getElementById('sum-shared'); if(ss) ss.textContent=fmt(sharedTotal)
@@ -1877,7 +1835,65 @@ function saveAddForm() {
   renderTxList(); renderAuth(); renderAllBudgets()
 }
 let currentMonth = 6
-function changeMonth(d) { currentMonth=Math.max(1,Math.min(12,currentMonth+d)); document.getElementById('stat-month').textContent=currentMonth+'월' }
+function changeMonth(d) { currentMonth=Math.max(1,Math.min(12,currentMonth+d)); document.getElementById('stat-month').textContent=currentMonth+'월'; renderStats() }
+
+function txMonth(t) { return +String(t.date||'').split('/')[0] || 0 }
+function statTxs(m) { return TXS.filter(t=>t.type!=='income'&&t.type!=='personal'&&!t.excluded&&txMonth(t)===m) }
+function renderStats() {
+  const donut = document.getElementById('stats-donut')
+  if(!donut) return
+  const txs = statTxs(currentMonth)
+  const byCat = {}
+  txs.forEach(t=>{ const c=t.cat||'기타'; byCat[c]=(byCat[c]||0)+t.amount })
+  const entries = Object.entries(byCat).sort((a,b)=>b[1]-a[1])
+  const total = entries.reduce((s,e)=>s+e[1],0)
+  const palette = ['var(--cat-food)','var(--cat-transport)','var(--cat-leisure)','var(--cat-utility)','var(--cat-goods)','var(--cat-sub)']
+  // 도넛
+  const C = 2*Math.PI*60
+  let off = 0
+  donut.innerHTML = total ? entries.map(([name,amt],i)=>{
+    const len = amt/total*C
+    const seg = `<circle cx="90" cy="90" r="60" fill="none" stroke="${palette[i%palette.length]}" stroke-width="26" stroke-dasharray="${len} ${C-len}" stroke-dashoffset="${-off}" transform="rotate(-90 90 90)"/>`
+    off += len
+    return seg
+  }).join('') : `<circle cx="90" cy="90" r="60" fill="none" stroke="var(--ink-06)" stroke-width="26"/>`
+  document.getElementById('donut-total').textContent = fmt(total)
+  // 카테고리 행
+  document.getElementById('stats-cat-rows').innerHTML = entries.length ? entries.map(([name,amt],i)=>`
+    <div class="cat-row"><div class="cat-dot" style="background:${palette[i%palette.length]}"></div><div class="cat-name">${name}</div><div class="cat-pct">${Math.round(amt/total*100)}%</div><div class="cat-amt">${fmt(amt)}원</div></div>`).join('')
+    : '<div style="text-align:center;padding:16px 0;color:var(--ink-40);font-size:13px;font-weight:500">이 달 지출이 없어요.</div>'
+  // 멤버별
+  const byPayer = {}
+  txs.forEach(t=>{ byPayer[t.payer]=(byPayer[t.payer]||0)+t.amount })
+  const payers = [...MEMBERS_LIST,'공동'].filter(p=>byPayer[p])
+  document.getElementById('stats-member-list').innerHTML = payers.length ? payers.map(p=>{
+    const amt = byPayer[p], pct = Math.round(amt/total*100)
+    return `<div class="member-stat">
+      <div class="member-avatar">${p[0]}</div>
+      <div style="flex:1">
+        <div style="display:flex;justify-content:space-between;align-items:baseline">
+          <div class="member-name">${p}</div><div class="member-amount">${fmt(amt)}원</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:6px">
+          <div class="member-bar-wrap"><div class="member-bar" style="width:${pct}%"></div></div>
+          <div class="member-pct">${pct}%</div>
+        </div>
+      </div>
+    </div>`
+  }).join('') : '<div style="text-align:center;padding:16px 0;color:var(--ink-40);font-size:13px;font-weight:500">이 달 지출이 없어요.</div>'
+  // 월별 추이 (최근 4개월)
+  const months = []
+  for(let i=3;i>=0;i--){ const mm=currentMonth-i; if(mm>=1) months.push(mm) }
+  const totals = months.map(mm=>statTxs(mm).reduce((s,t)=>s+t.amount,0))
+  const max = Math.max(...totals,1)
+  document.getElementById('stats-month-bars').innerHTML = months.map((mm,i)=>`
+    <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px">
+      <div style="height:${Math.max(4,Math.round(totals[i]/max*70))}px;width:100%;background:${mm===currentMonth?'var(--graphite)':'var(--ink-06)'};border-radius:4px 4px 0 0"></div>
+      <div style="font-size:11px;color:${mm===currentMonth?'var(--ink)':'var(--ink-40)'};font-weight:${mm===currentMonth?'700':'500'}">${mm}월</div>
+    </div>`).join('')
+  document.getElementById('stats-month-labels').innerHTML = months.map((mm,i)=>`
+    <span style="font-size:12px;color:${mm===currentMonth?'var(--ink)':'var(--ink-40)'};font-weight:${mm===currentMonth?'700':'500'}">${mm}월 <b style="color:var(--ink-72)">${fmt(totals[i])}원</b></span>`).join('')
+}
 function markSettled(btn) {
   const card = btn.closest('.settle-card')
   card.classList.add('settle-completed')
