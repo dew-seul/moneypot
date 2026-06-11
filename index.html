@@ -1078,6 +1078,7 @@ function loadTxs() {
 function saveTxs() { localStorage.setItem('mp_txs', JSON.stringify(TXS)); syncPush() }
 let TXS = loadTxs()
 let txFilter = '전체'
+let currentMonth = 6
 // 마이그레이션: 개인 지출은 카테고리 미사용
 { let _dirty=false; TXS.forEach(t=>{ if(t.type==='personal'&&t.cat){ t.cat=''; _dirty=true } }); if(_dirty) saveTxs() }
 let nextId = TXS.length ? Math.max(...TXS.map(t=>t.id))+1 : 10
@@ -1834,7 +1835,6 @@ function saveAddForm() {
   closeModal('modal-add')
   renderTxList(); renderAuth(); renderAllBudgets()
 }
-let currentMonth = 6
 function changeMonth(d) { currentMonth=Math.max(1,Math.min(12,currentMonth+d)); document.getElementById('stat-month').textContent=currentMonth+'월'; renderStats() }
 
 function txMonth(t) { return +String(t.date||'').split('/')[0] || 0 }
