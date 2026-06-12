@@ -764,6 +764,11 @@ body {
     </div>
 
     <div class="card">
+      <div class="section-title">용돈</div>
+      <div id="home-allowance-list"></div>
+    </div>
+
+    <div class="card">
       <div class="section-title">
         예산 현황
         <span class="section-more budget-setting-btn" onclick="openBudgetModal()">한도 설정</span>
@@ -1226,10 +1231,10 @@ function renderAuth() {
     personalCard.style.display = ''
     const spent = TXS.filter(t=>t.type==='personal'&&t.payer===currentUser).reduce((s,t)=>s+t.amount,0)
     const budget = getAllowance(currentUser)
-    document.getElementById('personal-label').textContent = '내 용돈 · '+currentUser
-    document.getElementById('personal-spent').textContent = fmt(spent)
+    document.getElementById('personal-label').textContent = budget ? '내 용돈 남음 · '+currentUser : '내 용돈 · '+currentUser
+    document.getElementById('personal-spent').textContent = budget ? fmt(budget-spent) : fmt(spent)
     const budgetEl = document.getElementById('personal-budget-info')
-    budgetEl.textContent = budget ? '한도 '+fmt(budget)+'원' : '한도 미설정'
+    budgetEl.textContent = budget ? `지출 ${fmt(spent)}원 / 한도 ${fmt(budget)}원` : '한도 미설정'
   } else {
     personalCard.style.display = 'none'
   }
@@ -1605,6 +1610,8 @@ function renderAllBudgets() {
     return renderBudgetRow({...c, spent}, true)
   }).join('')
   document.getElementById('home-budget-list').innerHTML  = catRows
+  const allowEl = document.getElementById('home-allowance-list')
+  if(allowEl) allowEl.innerHTML = allowanceBudgetRows(true)
   const catRowsFull = CATS.map(c=>{
     const spent = TXS.filter(t=>t.type!=='income'&&t.type!=='personal'&&t.cat===c.name).reduce((s,t)=>s+t.amount,0)
     return renderBudgetRow({...c, spent}, false)
