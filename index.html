@@ -1077,7 +1077,6 @@ function loadCats() {
 }
 function saveCats() { localStorage.setItem('mp_cats', JSON.stringify(CATS)); syncPush() }
 let CATS = loadCats()
-migrateData()
 
 const DEFAULT_TXS = [
   { id:1, icon:'bag', bg:'var(--ink-06)', name:'월급', cat:'', date:'6/25', payer:'슬',   type:'income', amount:3298087, excluded:false, wrongCard:false },
@@ -1090,6 +1089,9 @@ function saveTxs() { localStorage.setItem('mp_txs', JSON.stringify(TXS)); syncPu
 let TXS = loadTxs()
 let txFilter = '전체'
 let currentMonth = 6
+const SYNC_API = '/api/data'
+let _pushTimer = null
+let _lastPush = 0
 // 마이그레이션: 개인 지출 카테고리 제거 + 고정 유형→카테고리 속성 + 공동 생활비→생활비
 function migrateData() {
   let dirty = false
@@ -1112,6 +1114,7 @@ function migrateData() {
 }
 function fixedCatSet() { return new Set(CATS.filter(c=>c.fixed).map(c=>c.name)) }
 function isFixedTx(t) { return t.type==='shared' && fixedCatSet().has(t.cat) }
+migrateData()
 let nextId = TXS.length ? Math.max(...TXS.map(t=>t.id))+1 : 10
 
 /* ── Auth ── */
@@ -1126,9 +1129,6 @@ function getAllowance(n)  { return +(localStorage.getItem('mp_allow_'+n)||0) }
 function saveAllowance(n,v){ localStorage.setItem('mp_allow_'+n,v); syncPush() }
 
 /* ── Server sync (Cloudflare D1) ── */
-const SYNC_API = '/api/data'
-let _pushTimer = null
-let _lastPush = 0
 function collectSyncState() {
   const pins = {}, allows = {}, settles = {}
   for(let i=0;i<localStorage.length;i++){
