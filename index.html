@@ -658,6 +658,12 @@ body {
   font-family: var(--font); flex-shrink: 0;
 }
 .budget-edit-del:active { background: var(--ink-10); }
+.fixed-toggle {
+  padding: 4px 9px; border-radius: 6px; border: none; cursor: pointer;
+  font-size: 11px; font-weight: 700; font-family: var(--font); flex-shrink: 0;
+  background: transparent; color: var(--ink-24); box-shadow: var(--ring-inactive);
+}
+.fixed-toggle.on { background: var(--ink); color: white; box-shadow: none; }
 .budget-add-row {
   display: flex; align-items: center; gap: 8px;
   padding: 10px 0; cursor: pointer;
@@ -911,7 +917,6 @@ body {
         <label class="form-label">지출 유형</label>
         <div class="seg-control">
           <div class="seg-btn active" onclick="onExpenseTypeChange(this)">공동</div>
-          <div class="seg-btn" onclick="onExpenseTypeChange(this)">고정</div>
           <div class="seg-btn" onclick="onExpenseTypeChange(this)">개인</div>
         </div>
       </div>
@@ -1046,18 +1051,18 @@ const ICON = {
 
 const CAT_COLORS = ['var(--cat-food)','var(--cat-utility)','var(--cat-transport)','var(--cat-leisure)','var(--cat-goods)','var(--cat-sub)','var(--ink-40)']
 const DEFAULT_CATS = [
-  { name:'전세대출',         color:'var(--cat-food)',      budget:710000  },
-  { name:'저축',             color:'var(--cat-leisure)',   budget:2200000 },
+  { name:'전세대출',         color:'var(--cat-food)',      budget:710000,  fixed:true },
+  { name:'저축',             color:'var(--cat-leisure)',   budget:2200000, fixed:true },
   { name:'차량교통비',       color:'var(--cat-transport)', budget:420000  },
-  { name:'보험(종합,실비)',  color:'var(--cat-sub)',       budget:357000  },
+  { name:'보험(종합,실비)',  color:'var(--cat-sub)',       budget:357000,  fixed:true },
   { name:'식비',             color:'var(--cat-food)',      budget:500000  },
-  { name:'보험(차량,운전자)',color:'var(--cat-transport)', budget:90000   },
-  { name:'핸드폰통신비',     color:'var(--cat-utility)',   budget:139600  },
-  { name:'OTT',              color:'var(--cat-leisure)',   budget:37000   },
-  { name:'인터넷,tv',        color:'var(--cat-utility)',   budget:36000   },
-  { name:'정수기',           color:'var(--cat-utility)',   budget:45000   },
+  { name:'보험(차량,운전자)',color:'var(--cat-transport)', budget:90000,   fixed:true },
+  { name:'핸드폰통신비',     color:'var(--cat-utility)',   budget:139600,  fixed:true },
+  { name:'OTT',              color:'var(--cat-leisure)',   budget:37000,   fixed:true },
+  { name:'인터넷,tv',        color:'var(--cat-utility)',   budget:36000,   fixed:true },
+  { name:'정수기',           color:'var(--cat-utility)',   budget:45000,   fixed:true },
   { name:'생필품',           color:'var(--cat-goods)',     budget:null    },
-  { name:'관리비',           color:'var(--cat-utility)',   budget:null    },
+  { name:'관리비',           color:'var(--cat-utility)',   budget:null,    fixed:true },
   { name:'전기상하수',       color:'var(--cat-utility)',   budget:null    },
 ]
 const DEFAULT_ALLOWANCES = { '동현': 400000, '슬': 600000 }
@@ -1072,6 +1077,7 @@ function loadCats() {
 }
 function saveCats() { localStorage.setItem('mp_cats', JSON.stringify(CATS)); syncPush() }
 let CATS = loadCats()
+migrateData()
 
 const DEFAULT_TXS = [
   { id:1, icon:'bag', bg:'var(--ink-06)', name:'월급', cat:'', date:'6/25', payer:'슬',   type:'income', amount:3298087, excluded:false, wrongCard:false },
@@ -1084,8 +1090,28 @@ function saveTxs() { localStorage.setItem('mp_txs', JSON.stringify(TXS)); syncPu
 let TXS = loadTxs()
 let txFilter = '전체'
 let currentMonth = 6
-// 마이그레이션: 개인 지출은 카테고리 미사용
-{ let _dirty=false; TXS.forEach(t=>{ if(t.type==='personal'&&t.cat){ t.cat=''; _dirty=true } }); if(_dirty) saveTxs() }
+// 마이그레이션: 개인 지출 카테고리 제거 + 고정 유형→카테고리 속성 + 공동 생활비→생활비
+function migrateData() {
+  let dirty = false
+  TXS.forEach(t=>{ if(t.type==='personal'&&t.cat){ t.cat=''; dirty=true } })
+  TXS.forEach(t=>{
+    if(t.type==='fixed'){
+      const c = CATS.find(c=>c.name===t.cat)
+      if(c && !c.fixed){ c.fixed=true }
+      t.type='shared'; dirty=true
+    }
+  })
+  const dup = CATS.find(c=>c.name==='공동 생활비')
+  if(dup){
+    dup.name='생활비'
+    TXS.forEach(t=>{ if(t.cat==='공동 생활비') t.cat='생활비' })
+    dirty=true
+  }
+  if(dirty){ saveCats(); saveTxs() }
+  return dirty
+}
+function fixedCatSet() { return new Set(CATS.filter(c=>c.fixed).map(c=>c.name)) }
+function isFixedTx(t) { return t.type==='shared' && fixedCatSet().has(t.cat) }
 let nextId = TXS.length ? Math.max(...TXS.map(t=>t.id))+1 : 10
 
 /* ── Auth ── */
@@ -1151,6 +1177,7 @@ async function syncPull() {
     Object.entries(d.settles||{}).forEach(([k,v])=>localStorage.setItem('mp_settle_'+k,v))
     nextId = TXS.length ? Math.max(...TXS.map(t=>t.id))+1 : 10
     if(d.ts) localStorage.setItem('mp_dirty_ts', String(d.ts))
+    migrateData()
     renderTxList(); renderAllBudgets(); renderAuth()
   } catch(e){}
 }
@@ -1265,7 +1292,7 @@ function txHTML(tx) {
         <div class="tx-meta">
           ${tx.cat?`<span class="tx-cat">${tx.cat}</span>`:''}
           ${tx.date} · ${tx.payer}
-          <span class="settle-tag" style="${typeRing[tx.type]}">${typeLabel[tx.type]}</span>
+          <span class="settle-tag" style="${typeRing[tx.type]}">${isFixedTx(tx)?'고정':typeLabel[tx.type]}</span>
           ${tx.excluded?'<span class="badge-excluded">통계 제외</span>':''}
           ${tx.wrongCard?'<span class="badge-wrongcard">오결제</span>':''}
         </div>
@@ -1274,13 +1301,22 @@ function txHTML(tx) {
     </div>`
 }
 
+function txDateKey(t) {
+  const [m,d] = String(t.date||'').split('/')
+  return (+m||0)*100 + (+d||0)
+}
 function visibleTxs() {
   return TXS.filter(t => t.type !== 'personal' || t.payer === currentUser)
+    .sort((a,b) => txDateKey(b)-txDateKey(a) || b.id-a.id)
 }
 function renderTxList() {
   const visible = visibleTxs()
-  const typeMap = {'공동':'shared','고정':'fixed','개인':'personal'}
-  const filtered = txFilter==='전체' ? visible : visible.filter(t=>t.type===typeMap[txFilter])
+  const fixedSet = fixedCatSet()
+  const filtered =
+    txFilter==='공동' ? visible.filter(t=>t.type==='shared' && !fixedSet.has(t.cat)) :
+    txFilter==='고정' ? visible.filter(t=>t.type==='shared' && fixedSet.has(t.cat)) :
+    txFilter==='개인' ? visible.filter(t=>t.type==='personal') :
+    visible
   const el = document.getElementById('tx-list')
   if (el) el.innerHTML = filtered.length ? filtered.map(txHTML).join('') : '<div style="text-align:center;padding:40px 0;color:var(--ink-40);font-size:13px;font-weight:500">기록이 없어요.</div>'
   const home = document.getElementById('home-tx-list')
@@ -1289,8 +1325,8 @@ function renderTxList() {
   renderBalanceCard()
   renderSettle()
   renderStats()
-  const sharedTotal = TXS.filter(t=>t.type==='shared').reduce((s,t)=>s+t.amount,0)
-  const fixedTotal  = TXS.filter(t=>t.type==='fixed').reduce((s,t)=>s+t.amount,0)
+  const sharedTotal = TXS.filter(t=>t.type==='shared' && !isFixedTx(t)).reduce((s,t)=>s+t.amount,0)
+  const fixedTotal  = TXS.filter(t=>isFixedTx(t)).reduce((s,t)=>s+t.amount,0)
   const ss=document.getElementById('sum-shared'); if(ss) ss.textContent=fmt(sharedTotal)
   const sf=document.getElementById('sum-fixed');  if(sf) sf.textContent=fmt(fixedTotal)
 }
@@ -1486,7 +1522,7 @@ function openEditModal(id) {
   document.querySelectorAll('.form-expense-only').forEach(e=>e.style.display=isIncome?'none':'')
   // 지출 유형
   if(!isIncome) {
-    const typeMap = {shared:'공동',fixed:'고정',personal:'개인'}
+    const typeMap = {shared:'공동',personal:'개인'}
     const typeLabel = typeMap[tx.type]||'공동'
     document.querySelectorAll('#form-expense-section .seg-btn').forEach(b=>b.classList.toggle('active',b.textContent.trim()===typeLabel))
   }
@@ -1626,6 +1662,7 @@ function renderBudgetEditRows() {
       <input class="budget-edit-name-input" type="text" value="${c.name}" data-idx="${i}" placeholder="카테고리명">
       <input class="budget-edit-input" type="number" inputmode="numeric" value="${c.budget||''}" placeholder="한도 없음" data-idx="${i}">
       <span class="budget-unit">원</span>
+      <button class="fixed-toggle${c.fixed?' on':''}" data-idx="${i}" onclick="toggleCatFixed(this)" title="고정 지출 카테고리">고정</button>
       <button class="budget-edit-del" onclick="deleteCatRow(${i})" title="삭제">×</button>
     </div>`).join('')+`
   <button class="budget-add-row" onclick="addCatRow()">
@@ -1639,6 +1676,13 @@ function renderBudgetEditRows() {
       <input class="allowance-edit-input" type="number" inputmode="numeric" value="${getAllowance(name)||''}" placeholder="한도 없음" data-name="${name}">
       <span class="budget-unit">원</span>
     </div>`).join('')
+}
+function toggleCatFixed(btn) {
+  const c = CATS[+btn.dataset.idx]
+  if(!c) return
+  c.fixed = !c.fixed
+  btn.classList.toggle('on', c.fixed)
+  saveCats()
 }
 function deleteCatRow(i) { CATS.splice(i,1); saveCats(); renderBudgetEditRows() }
 function addCatRow() {
@@ -1801,7 +1845,7 @@ function saveAddForm() {
   const typeSeg = modal.querySelector('#form-expense-section .seg-btn.active')
   const amount = +amtEl.value
   if(!amount) { amtEl.focus(); return }
-  const typeMap = {'공동':'shared','고정':'fixed','개인':'personal'}
+  const typeMap = {'공동':'shared','개인':'personal'}
   const type = isIncome ? 'income' : (typeMap[typeSeg?.textContent?.trim()]||'shared')
   const payer = payerEl ? payerEl.value.replace(' (나)','') : (currentUser||'슬')
   // 정산 금액 계산
