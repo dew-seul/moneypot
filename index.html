@@ -1759,7 +1759,7 @@ function renderPayerSelect(isPersonal, isIncome) {
   } else {
     sel.innerHTML = MEMBERS_LIST.map(n=>`<option value="${n}">${n}${n===currentUser?' (나)':''}</option>`).join('')
       + '<option value="공동">공동</option>'
-    if(currentUser) sel.value = currentUser
+    sel.value = '공동'
   }
 }
 function openAddModal() {
