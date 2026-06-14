@@ -942,7 +942,7 @@ body {
       </div>
       <div class="form-group" style="margin:0">
         <label class="form-label">날짜</label>
-        <input class="form-input" type="date" value="2026-06-10">
+        <input class="form-input" type="date" id="form-date-input">
       </div>
     </div>
     <div id="form-split-section" style="display:none">
@@ -1774,6 +1774,10 @@ function openAddModal() {
   const typeSeg = document.querySelector('#form-expense-section .seg-control')
   if(typeSeg) { typeSeg.querySelectorAll('.seg-btn').forEach((b,i)=>b.classList.toggle('active',i===0)) }
   renderPayerSelect(false, false)
+  // 날짜 오늘로
+  const today = new Date(); const pad = n=>String(n).padStart(2,'0')
+  const dateEl = document.getElementById('form-date-input')
+  if(dateEl) dateEl.value = `${today.getFullYear()}-${pad(today.getMonth()+1)}-${pad(today.getDate())}`
   // 정산 섹션 리셋
   const splitSeg = document.querySelector('#form-split-seg')
   if(splitSeg) { splitSeg.querySelectorAll('.seg-btn').forEach((b,i)=>b.classList.toggle('active',i===0)) }
