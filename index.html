@@ -413,6 +413,8 @@ body {
 }
 .form-input::placeholder { color: var(--ink-40); }
 .form-input:focus { box-shadow: var(--ring-active); }
+input[type=date].form-input { cursor: pointer; }
+input[type=date].form-input::-webkit-calendar-picker-indicator { position:absolute; inset:0; width:100%; height:100%; opacity:0; cursor:pointer; }
 .form-amount { font-size: 30px; font-weight: 700; letter-spacing: -.05em; }
 .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 
@@ -1283,6 +1285,7 @@ function txHTML(tx) {
   const amtStr = isIncome ? `+${fmt(tx.amount)}원` : `−${fmt(tx.amount)}원`
   return `
     <div class="tx-item${tx.excluded?' tx-excluded':''}" data-id="${tx.id}"
+         onclick="openEditModal(${tx.id})"
          oncontextmenu="openCtxMenu(event,${tx.id})"
          onpointerdown="startLongPress(event,${tx.id})"
          onpointerup="cancelLongPress()" onpointerleave="cancelLongPress()">
